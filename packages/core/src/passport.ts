@@ -1,9 +1,11 @@
-import type { AdapterContext, AgentAdapter } from '@agentpass/adapter-sdk';
+import type { AdapterContext, AdapterRegistry, AgentAdapter } from '@agentpass/adapter-sdk';
 import type { MemoryProvider } from '@agentpass/memory';
 import { Mem0Provider } from '@agentpass/mem0';
 import type { UniversalProfile } from '@agentpass/profile';
 import { SecretRegistry } from '@agentpass/secrets';
-import { createRegistry, agentpassHome, deviceName } from './registry.js';
+import { catalogEntry } from './catalog.js';
+import { agentpassHome, deviceName } from './paths.js';
+import { loadPlugins, type PluginLoadResult } from './plugins.js';
 import { ProfileStore } from './store.js';
 import { VaultMemoryProvider } from './vault-memory.js';
 import { HttpRemoteStore, NullRemoteStore, type RemoteStore } from './remote.js';
@@ -15,24 +17,31 @@ export interface PassportOptions {
   device?: string;
   /** Home directory agents are read from. Separated from `home` so tests can redirect it. */
   agentHome?: string;
+  /** Additional plugin specifiers, mainly for tests. */
+  plugins?: string[];
+  /** Turn off automatic plugin discovery, to exercise a plugin-free install. */
+  disableAutoDiscovery?: boolean;
 }
 
 /**
  * Wires the pieces together and owns the choices a user should not have to make.
  *
- * Memory provider selection is the important one: Mem0 when an API key is present,
- * otherwise a local file. Both satisfy `MemoryProvider`, so no command, adapter, or test
- * has to branch on which is in use.
+ * Adapters are plugins resolved at runtime rather than compiled in. Someone who only uses
+ * Claude Code should not have to carry a Cursor adapter, and supporting a new agent should
+ * not require a new release of this package — so nothing here imports a specific agent.
  */
 export class Passport {
   readonly store: ProfileStore;
-  readonly registry = createRegistry();
   readonly secrets: SecretRegistry;
   readonly env: NodeJS.ProcessEnv;
   readonly cwd: string;
   readonly device: string;
   readonly agentHome: string;
   readonly home: string;
+
+  private plugins?: Promise<PluginLoadResult>;
+  private readonly extraPlugins: string[];
+  private readonly noDiscovery: boolean;
 
   constructor(options: PassportOptions = {}) {
     this.env = options.env ?? process.env;
@@ -45,8 +54,24 @@ export class Passport {
       this.env['HOME'] ??
       this.env['USERPROFILE'] ??
       '';
+    this.extraPlugins = options.plugins ?? [];
+    this.noDiscovery = options.disableAutoDiscovery ?? false;
     this.store = new ProfileStore({ home: this.home, device: this.device });
     this.secrets = SecretRegistry.default(this.env);
+  }
+
+  /** Load plugins once per process; every caller shares the same result. */
+  async loadPlugins(): Promise<PluginLoadResult> {
+    this.plugins ??= loadPlugins({
+      home: this.home,
+      extra: this.extraPlugins,
+      disableAutoDiscovery: this.noDiscovery,
+    });
+    return this.plugins;
+  }
+
+  async registry(): Promise<AdapterRegistry> {
+    return (await this.loadPlugins()).registry;
   }
 
   context(overrides: Partial<AdapterContext> = {}): AdapterContext {
@@ -60,8 +85,25 @@ export class Passport {
     };
   }
 
-  adapter(id: string): AgentAdapter {
-    return this.registry.get(id);
+  async adapter(id: string): Promise<AgentAdapter> {
+    const registry = await this.registry();
+    if (registry.has(id)) return registry.get(id);
+
+    // Distinguish "we know this agent but its plugin is absent" from "never heard of it".
+    // The first is a one-command fix; the second is a typo.
+    const known = catalogEntry(id);
+    if (known) {
+      throw new Error(
+        `the ${known.displayName} plugin is not installed. Run: npm install ${known.package}`,
+      );
+    }
+
+    const available = registry.ids();
+    throw new Error(
+      available.length > 0
+        ? `unknown agent "${id}". Installed plugins: ${available.join(', ')}`
+        : `unknown agent "${id}". No adapter plugins are installed.`,
+    );
   }
 
   /**
@@ -94,11 +136,12 @@ export class Passport {
     return new HttpRemoteStore(session.serverUrl, session.token);
   }
 
-  /** Agents that appear to be installed, used by `status` and by `sync` with no arguments. */
+  /** Agents with a plugin installed that also appear to be configured on this machine. */
   async detectAgents(): Promise<AgentAdapter[]> {
     const context = this.context();
+    const registry = await this.registry();
     const found: AgentAdapter[] = [];
-    for (const adapter of this.registry.all()) {
+    for (const adapter of registry.all()) {
       if (await adapter.detect(context)) found.push(adapter);
     }
     return found;

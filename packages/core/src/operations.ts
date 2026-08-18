@@ -50,7 +50,7 @@ export async function importFromAgent(
   passport: Passport,
   options: ImportOptions,
 ): Promise<ImportOutcome> {
-  const adapter = passport.adapter(options.agent);
+  const adapter = await passport.adapter(options.agent);
   const dataKey = await passport.store.unlock(options.passphrase);
   const current = await passport.store.load(dataKey);
 
@@ -139,7 +139,7 @@ export async function restoreToAgent(
   passport: Passport,
   options: RestoreOptions,
 ): Promise<RestoreOutcome> {
-  const adapter = passport.adapter(options.agent);
+  const adapter = await passport.adapter(options.agent);
   const dataKey = await passport.store.unlock(options.passphrase);
   const profile = await passport.store.load(dataKey);
 
@@ -295,7 +295,7 @@ export async function syncProfile(passport: Passport, options: SyncOptions): Pro
   passport: Passport,
   options: { agent: string; passphrase: string },
 ): Promise<{ incoming: ProfileDiff; outgoing: AgentConfigDiff; profile: UniversalProfile }> {
-  const adapter = passport.adapter(options.agent);
+  const adapter = await passport.adapter(options.agent);
   const dataKey = await passport.store.unlock(options.passphrase);
   const profile = await passport.store.load(dataKey);
   const context = passport.context({ dryRun: true });

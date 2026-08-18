@@ -1,106 +1,97 @@
 import { readdir, stat } from 'node:fs/promises';
-import { claudePaths } from '@agentpass/adapter-claude';
-import { codexPaths } from '@agentpass/adapter-codex';
-import { cursorPaths } from '@agentpass/adapter-cursor';
-import { openclawPaths } from '@agentpass/adapter-openclaw';
-import type { AdapterContext } from '@agentpass/adapter-sdk';
+import { isAbsolute, join, resolve } from 'node:path';
+import { AGENT_CATALOG, type CatalogEntry, type HintKind } from './catalog.js';
 import type { Passport } from './passport.js';
 
 export interface DiscoveredFile {
   path: string;
-  kind: 'instructions' | 'settings' | 'mcp' | 'memory' | 'skills';
+  kind: HintKind;
   bytes: number;
 }
 
 export interface DiscoveredAgent {
   id: string;
   displayName: string;
+  /** Config for this agent exists on disk. */
   installed: boolean;
+  /** An adapter plugin is loaded and can read and write it. */
+  pluginInstalled: boolean;
+  /** npm package to install when `installed` is true but `pluginInstalled` is false. */
+  package?: string;
   files: DiscoveredFile[];
 }
 
 /**
- * Where each agent keeps its state.
+ * Scan the machine for agents, whether or not their plugin is present.
  *
- * These paths are stable across installs, which is the entire reason zero-configuration
- * discovery is possible: the user should never have to tell Agent Passport where their
- * agents live, because there is nothing to tell.
- */
-function knownLocations(context: AdapterContext): Record<string, DiscoveredFile[]> {
-  const claude = claudePaths(context);
-  const openclaw = openclawPaths(context);
-  const codex = codexPaths(context);
-  const cursor = cursorPaths(context);
-
-  const file = (path: string, kind: DiscoveredFile['kind']): DiscoveredFile => ({
-    path,
-    kind,
-    bytes: 0,
-  });
-
-  return {
-    claude: [
-      file(claude.userMemory, 'instructions'),
-      file(claude.projectMemory, 'instructions'),
-      file(claude.userSettings, 'settings'),
-      file(claude.globalJson, 'mcp'),
-      file(claude.projectMcp, 'mcp'),
-      file(claude.skillsDir, 'skills'),
-    ],
-    openclaw: [
-      file(openclaw.agentsFile, 'instructions'),
-      file(openclaw.userFile, 'instructions'),
-      file(openclaw.memoryFile, 'memory'),
-      file(openclaw.configFile, 'settings'),
-      file(openclaw.skillsDir, 'skills'),
-    ],
-    codex: [
-      file(codex.globalAgents, 'instructions'),
-      file(codex.projectAgents, 'instructions'),
-      file(codex.configFile, 'settings'),
-      file(codex.skillsDir, 'skills'),
-    ],
-    cursor: [
-      file(cursor.passportRule, 'instructions'),
-      file(cursor.agentsFile, 'instructions'),
-      file(cursor.rulesDir, 'instructions'),
-      file(cursor.projectMcp, 'mcp'),
-      file(cursor.globalMcp, 'mcp'),
-    ],
-  };
-}
-
-/**
- * Scan the machine for every agent Agent Passport understands.
- *
- * This runs before the user has said anything about their setup. Asking someone to
- * enumerate their own agents defeats the purpose: the tool exists because keeping track of
- * that by hand is the chore being removed.
+ * Detection is split deliberately. A loaded plugin decides authoritatively whether its
+ * agent is configured, because only it knows the environment overrides and file formats
+ * involved. For agents with no plugin, core falls back to the catalog's path hints — just
+ * enough to say "you have Cursor here, install this to include it" without pulling in an
+ * adapter the user never asked for.
  */
 export async function discoverAgents(passport: Passport): Promise<DiscoveredAgent[]> {
   const context = passport.context();
-  const locations = knownLocations(context);
+  const registry = await passport.registry();
   const discovered: DiscoveredAgent[] = [];
+  const seen = new Set<string>();
 
-  for (const adapter of passport.registry.all()) {
-    const candidates = locations[adapter.id] ?? [];
-    const files: DiscoveredFile[] = [];
-
-    for (const candidate of candidates) {
-      const size = await measure(candidate.path);
-      if (size === undefined) continue;
-      files.push({ ...candidate, bytes: size });
-    }
+  for (const entry of AGENT_CATALOG) {
+    seen.add(entry.id);
+    const files = await measureHints(entry, passport);
+    const hasPlugin = registry.has(entry.id);
+    const installed = hasPlugin ? await registry.get(entry.id).detect(context) : files.length > 0;
 
     discovered.push({
-      id: adapter.id,
-      displayName: adapter.displayName,
-      installed: await adapter.detect(context),
+      id: entry.id,
+      displayName: entry.displayName,
+      installed,
+      pluginInstalled: hasPlugin,
+      ...(hasPlugin ? {} : { package: entry.package }),
       files,
     });
   }
 
+  // Third-party plugins have no catalog entry, so they are reported from the registry.
+  for (const adapter of registry.all()) {
+    if (seen.has(adapter.id)) continue;
+    discovered.push({
+      id: adapter.id,
+      displayName: adapter.displayName,
+      installed: await adapter.detect(context),
+      pluginInstalled: true,
+      files: [],
+    });
+  }
+
   return discovered;
+}
+
+/** Agents that are configured here but whose plugin is missing. */
+export function missingPlugins(discovered: DiscoveredAgent[]): DiscoveredAgent[] {
+  return discovered.filter((agent) => agent.installed && !agent.pluginInstalled);
+}
+
+/** Agents that can actually be imported or restored right now. */
+export function usableAgents(discovered: DiscoveredAgent[]): DiscoveredAgent[] {
+  return discovered.filter((agent) => agent.installed && agent.pluginInstalled);
+}
+
+async function measureHints(entry: CatalogEntry, passport: Passport): Promise<DiscoveredFile[]> {
+  const files: DiscoveredFile[] = [];
+  for (const hint of entry.hints) {
+    const path = resolveHint(hint.path, passport);
+    const size = await measure(path);
+    if (size === undefined) continue;
+    files.push({ path, kind: hint.kind, bytes: size });
+  }
+  return files;
+}
+
+function resolveHint(path: string, passport: Passport): string {
+  if (path.startsWith('~/')) return join(passport.agentHome, path.slice(2));
+  if (path.startsWith('./')) return join(passport.cwd, path.slice(2));
+  return isAbsolute(path) ? path : resolve(passport.cwd, path);
 }
 
 /** Size of a file, or the total size of a directory's immediate contents. */
@@ -117,7 +108,7 @@ async function measure(path: string): Promise<number | undefined> {
     for (const entry of entries) {
       if (!entry.isFile()) continue;
       try {
-        total += (await stat(`${path}/${entry.name}`)).size;
+        total += (await stat(join(path, entry.name))).size;
       } catch {
         // A file that vanished between listing and stat is simply not counted.
       }

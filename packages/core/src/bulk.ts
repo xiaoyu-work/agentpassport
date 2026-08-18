@@ -1,5 +1,5 @@
 import type { Passport } from './passport.js';
-import { discoverAgents } from './discover.js';
+import { discoverAgents, usableAgents } from './discover.js';
 import {
   importFromAgent,
   restoreToAgent,
@@ -23,8 +23,8 @@ export interface BulkResult<T> {
 
 async function targets(passport: Passport, requested?: string[]): Promise<string[]> {
   if (requested && requested.length > 0) return requested;
-  const discovered = await discoverAgents(passport);
-  return discovered.filter((agent) => agent.installed).map((agent) => agent.id);
+  // Only agents that are both configured here and have a plugin can be acted on.
+  return usableAgents(await discoverAgents(passport)).map((agent) => agent.id);
 }
 
 /**

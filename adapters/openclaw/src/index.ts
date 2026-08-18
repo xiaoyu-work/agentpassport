@@ -1,6 +1,8 @@
 import {
+  ADAPTER_API_VERSION,
   ProfileBuilder,
   applyManagedBlock,
+  definePlugin,
   applyPlan,
   describeChange,
   expandEnv,
@@ -330,4 +332,14 @@ function serialize(value: unknown): string {
 }
 
 export const openclawAdapter = new OpenClawAdapter();
+
+export const plugin = definePlugin({
+  apiVersion: ADAPTER_API_VERSION,
+  id: AGENT_ID,
+  displayName: 'OpenClaw',
+  version: '0.1.0',
+  create: () => new OpenClawAdapter(),
+});
+
+export default plugin;
 export * from './paths.js';

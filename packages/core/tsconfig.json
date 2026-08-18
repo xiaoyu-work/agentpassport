@@ -12,10 +12,6 @@
     { "path": "../sync" },
     { "path": "../adapter-sdk" },
     { "path": "../../integrations/mem0" },
-    { "path": "../../integrations/secrets" },
-    { "path": "../../adapters/claude" },
-    { "path": "../../adapters/openclaw" },
-    { "path": "../../adapters/codex" },
-    { "path": "../../adapters/cursor" }
+    { "path": "../../integrations/secrets" }
   ]
 }

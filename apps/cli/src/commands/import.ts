@@ -49,7 +49,7 @@ export async function importCommand(
   }
 
   for (const outcome of outcomes) {
-    const adapter = passport.adapter(outcome.agent);
+    const adapter = await passport.adapter(outcome.agent);
     heading(`${adapter.displayName}`);
 
     if (outcome.sources.length > 0) {

@@ -63,8 +63,8 @@ export async function memoryCommand(
       const agents = rest.slice(1);
       if (!id || agents.length === 0) return usage('agentpass memory pin <id> <agent> [agent...]');
       for (const agent of agents) {
-        if (!passport.registry.has(agent)) {
-          warn(`unknown agent "${agent}". Known: ${passport.registry.ids().join(', ')}`);
+        if (!(await passport.registry()).has(agent)) {
+          warn(`unknown agent "${agent}". Known: ${(await passport.registry()).ids().join(', ')}`);
           return 1;
         }
       }

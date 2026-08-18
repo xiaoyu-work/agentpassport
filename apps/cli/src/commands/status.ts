@@ -1,6 +1,17 @@
-import { discoverAgents, type Passport } from '@agentpass/core';
+import { discoverAgents, missingPlugins, usableAgents, type Passport } from '@agentpass/core';
 import { summarizeSharing } from '@agentpass/memory';
-import { bullet, cyan, dim, formatBytes, heading, line, ok, readPassphrase, warn } from '../ui.js';
+import {
+  bullet,
+  cyan,
+  dim,
+  formatBytes,
+  heading,
+  line,
+  ok,
+  readPassphrase,
+  warn,
+  yellow,
+} from '../ui.js';
 
 /**
  * Show what is installed on this machine.
@@ -10,10 +21,11 @@ import { bullet, cyan, dim, formatBytes, heading, line, ok, readPassphrase, warn
  */
 export async function scan(passport: Passport): Promise<number> {
   const discovered = await discoverAgents(passport);
-  const installed = discovered.filter((agent) => agent.installed);
+  const usable = usableAgents(discovered);
+  const missing = missingPlugins(discovered);
 
   heading('Agents on this machine');
-  if (installed.length === 0) {
+  if (usable.length === 0 && missing.length === 0) {
     warn('No supported agents found.');
     line(dim('Looked for Claude Code, OpenClaw, Codex, and Cursor in their standard locations.'));
     return 0;
@@ -24,14 +36,26 @@ export async function scan(passport: Passport): Promise<number> {
       line(`  ${dim('·')} ${dim(`${agent.displayName} — not found`)}`);
       continue;
     }
-    line(`  ${cyan('●')} ${agent.displayName} ${dim(`(${agent.id})`)}`);
+
+    const marker = agent.pluginInstalled ? cyan('●') : yellow('●');
+    const note = agent.pluginInstalled ? '' : yellow(' — plugin not installed');
+    line(`  ${marker} ${agent.displayName} ${dim(`(${agent.id})`)}${note}`);
+
     for (const file of agent.files) {
       bullet(dim(`  ${file.kind.padEnd(12)} ${file.path} ${formatBytes(file.bytes)}`));
+    }
+    if (!agent.pluginInstalled) {
+      bullet(cyan(`  npm install ${agent.package}`));
     }
   }
 
   line('');
-  line(`Found ${installed.length} agent(s). Run ${dim('agentpass import')} to bring them in.`);
+  if (usable.length > 0) {
+    line(`Ready to import ${usable.length} agent(s). Run ${dim('agentpass import')}.`);
+  }
+  if (missing.length > 0) {
+    warn(`${missing.length} detected agent(s) need a plugin. Run ${dim('agentpass plugins')}.`);
+  }
   return 0;
 }
 
@@ -82,11 +106,14 @@ export async function status(passport: Passport): Promise<number> {
     }
   }
 
-  const installed = (await discoverAgents(passport)).filter((agent) => agent.installed);
+  const discovered = await discoverAgents(passport);
   heading('Agents');
-  for (const agent of installed) {
+  for (const agent of usableAgents(discovered)) {
     const visible = sharing.shared + (sharing.byAgent[agent.id] ?? 0);
     ok(`${agent.displayName} ${dim(`— sees ${visible} memor${visible === 1 ? 'y' : 'ies'}`)}`);
+  }
+  for (const agent of missingPlugins(discovered)) {
+    warn(`${agent.displayName} ${dim(`— detected, but ${agent.package} is not installed`)}`);
   }
 
   if (Object.keys(profile.secrets.references).length > 0) {

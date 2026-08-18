@@ -1,9 +1,11 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
+  ADAPTER_API_VERSION,
   ProfileBuilder,
   applyManagedBlock,
   applyPlan,
+  definePlugin,
   describeChange,
   expandEnv,
   inferWorkspaceHints,
@@ -344,3 +346,13 @@ function serialize(value: unknown): string {
 }
 
 export const cursorAdapter = new CursorAdapter();
+
+export const plugin = definePlugin({
+  apiVersion: ADAPTER_API_VERSION,
+  id: AGENT_ID,
+  displayName: 'Cursor',
+  version: '0.1.0',
+  create: () => new CursorAdapter(),
+});
+
+export default plugin;

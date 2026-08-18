@@ -21,5 +21,11 @@
     "@agentpass/profile": "*",
     "@agentpass/sync": "*",
     "@agentpass/adapter-sdk": "*"
+  },
+  "optionalDependencies": {
+    "@agentpass/adapter-claude": "*",
+    "@agentpass/adapter-codex": "*",
+    "@agentpass/adapter-cursor": "*",
+    "@agentpass/adapter-openclaw": "*"
   }
 }

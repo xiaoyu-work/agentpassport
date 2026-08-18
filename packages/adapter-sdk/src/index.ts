@@ -8,3 +8,4 @@ export * from './skills.js';
 export * from './builder.js';
 export * from './models.js';
 export * from './registry.js';
+export * from './plugin.js';

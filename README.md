@@ -77,6 +77,47 @@ $env:AGENTPASS_HOME       = "$env:TEMP\demo-pass"   # where the passport lives
 
 On macOS or Linux use `export` instead of `$env:`.
 
+## Agents are plugins
+
+You should not have to carry a Cursor adapter to use Claude Code. Each agent's support is a
+separate, optional package, and Agent Passport works with none of them installed.
+
+```console
+npm install @agentpass/adapter-claude
+npm install @agentpass/adapter-openclaw
+npm install @agentpass/adapter-codex
+npm install @agentpass/adapter-cursor
+```
+
+Plugins are found automatically — from `node_modules`, from `~/.agentpass/plugins/`, or
+from a list in `~/.agentpass/plugins.json`. Any package named `agentpass-adapter-*` or
+`@agentpass/adapter-*` is picked up with no configuration.
+
+Core keeps a small table of well-known agent paths, which solves a chicken-and-egg problem:
+properly detecting an agent needs its adapter, but we want to tell you an agent is present
+_before_ you have that adapter. So Agent Passport notices agents it cannot yet read, and
+says how to fix it:
+
+```console
+$ agentpass plugins
+
+Installed plugins
+✓ Claude Code v0.1.0 (claude, bundled)
+
+Detected here, but no plugin installed
+  ● OpenAI Codex
+    ~/.codex/config.toml
+    npm install @agentpass/adapter-codex
+
+Available
+  · OpenClaw — @agentpass/adapter-openclaw
+  · Cursor — @agentpass/adapter-cursor
+```
+
+`scan` marks the same distinction, and `import`/`restore` act only on agents that are both
+present and readable. A missing or broken plugin is always reported, never thrown — one bad
+third-party package cannot take down the agents that do work.
+
 ## What a run looks like
 
 ```console
@@ -226,6 +267,7 @@ a second device with the same passphrase can join. The server can never unwrap i
 | Command                                              | Purpose                                            |
 | ---------------------------------------------------- | -------------------------------------------------- |
 | `agentpass scan`                                     | List detected agents and their config files        |
+| `agentpass plugins`                                  | Which adapters are installed, missing, or broken   |
 | `agentpass login`                                    | Create or join a passport                          |
 | `agentpass import [agent]`                           | Agent config → passport (all agents by default)    |
 | `agentpass restore [agent]`                          | Passport → agent config (all agents by default)    |
@@ -256,10 +298,14 @@ atomic, and exporting twice produces an identical file.
 
 ## Adding an agent
 
-Implement one interface and register it. Nothing else changes — not the profile schema, not
-the sync engine, not the CLI.
+Publish a package named `agentpass-adapter-<name>`. It is discovered automatically — no
+change to this repository, and no new release of the CLI.
+
+Implement one interface and export a plugin manifest:
 
 ```ts
+import { ADAPTER_API_VERSION, definePlugin } from '@agentpass/adapter-sdk';
+
 export interface AgentAdapter {
   readonly id: string;
   readonly displayName: string;
@@ -278,33 +324,42 @@ export interface AgentAdapter {
   ): Promise<ExportResult>;
   validate(context: AdapterContext): Promise<ValidationResult>;
 }
+
+export const plugin = definePlugin({
+  apiVersion: ADAPTER_API_VERSION,
+  id: 'my-agent',
+  displayName: 'My Agent',
+  create: () => new MyAgentAdapter(),
+});
 ```
+
+`apiVersion` is checked at load time, so an adapter built against an older interface is
+refused with a clear message instead of half-working and corrupting someone's config on the
+first `restore`.
 
 Adapters must be bidirectional and idempotent. `import` after `export` round-trips, and
 `export` twice is a no-op. A one-way copier would strand users on whichever agent they
 configured first, which is the trap this exists to avoid.
 
-Register it in `packages/core/src/registry.ts`:
-
-```ts
-new AdapterRegistry().register(claudeAdapter).register(yourAdapter);
-```
+Adapters never touch `process.env` or `os.homedir()` directly; everything comes through
+`AdapterContext`, which is what lets the test suite run every adapter against a temporary
+directory instead of a developer's real configuration.
 
 ## Repository layout
 
-| Path                   | Purpose                                                 |
-| ---------------------- | ------------------------------------------------------- |
-| `packages/profile`     | `UniversalProfile` schema, field versioning, YAML codec |
-| `packages/memory`      | Memory schema, provenance policy, sharing resolution    |
-| `packages/crypto`      | AES-256-GCM sealed boxes, keyring, envelopes            |
-| `packages/adapter-sdk` | `AgentAdapter` interface and adapter building blocks    |
-| `packages/sync`        | Field-level diff, three-way merge, conflict detection   |
-| `packages/core`        | Encrypted vault, orchestration, discovery               |
-| `adapters/*`           | Claude Code, OpenClaw, Codex, Cursor                    |
-| `integrations/mem0`    | Optional Mem0-backed memory provider                    |
-| `integrations/secrets` | 1Password, Infisical, and environment resolvers         |
-| `apps/cli`             | The `agentpass` command                                 |
-| `apps/api`             | Reference zero-knowledge sync server                    |
+| Path                   | Purpose                                                    |
+| ---------------------- | ---------------------------------------------------------- |
+| `packages/profile`     | `UniversalProfile` schema, field versioning, YAML codec    |
+| `packages/memory`      | Memory schema, provenance policy, sharing resolution       |
+| `packages/crypto`      | AES-256-GCM sealed boxes, keyring, envelopes               |
+| `packages/adapter-sdk` | `AgentAdapter` interface, plugin contract, building blocks |
+| `packages/sync`        | Field-level diff, three-way merge, conflict detection      |
+| `packages/core`        | Encrypted vault, plugin loader, orchestration, discovery   |
+| `adapters/*`           | Optional plugins: Claude Code, OpenClaw, Codex, Cursor     |
+| `integrations/mem0`    | Optional Mem0-backed memory provider                       |
+| `integrations/secrets` | 1Password, Infisical, and environment resolvers            |
+| `apps/cli`             | The `agentpass` command                                    |
+| `apps/api`             | Reference zero-knowledge sync server                       |
 
 ## Memory backends
 

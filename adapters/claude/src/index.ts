@@ -1,6 +1,8 @@
 import {
+  ADAPTER_API_VERSION,
   ProfileBuilder,
   applyManagedBlock,
+  definePlugin,
   applyPlan,
   describeChange,
   expandEnv,
@@ -313,4 +315,14 @@ function serialize(value: unknown): string {
 }
 
 export const claudeAdapter = new ClaudeAdapter();
+
+export const plugin = definePlugin({
+  apiVersion: ADAPTER_API_VERSION,
+  id: AGENT_ID,
+  displayName: 'Claude Code',
+  version: '0.1.0',
+  create: () => new ClaudeAdapter(),
+});
+
+export default plugin;
 export * from './paths.js';

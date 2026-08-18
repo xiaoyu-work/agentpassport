@@ -1,8 +1,10 @@
 import { join } from 'node:path';
 import {
+  ADAPTER_API_VERSION,
   ProfileBuilder,
   applyManagedBlock,
   applyPlan,
+  definePlugin,
   describeChange,
   expandEnv,
   inferWorkspaceHints,
@@ -336,3 +338,13 @@ function toNativeServers(servers: McpServer[]): Record<string, CodexMcpServer> {
 }
 
 export const codexAdapter = new CodexAdapter();
+
+export const plugin = definePlugin({
+  apiVersion: ADAPTER_API_VERSION,
+  id: AGENT_ID,
+  displayName: 'OpenAI Codex',
+  version: '0.1.0',
+  create: () => new CodexAdapter(),
+});
+
+export default plugin;

@@ -1,4 +1,6 @@
-export * from './registry.js';
+export * from './paths.js';
+export * from './catalog.js';
+export * from './plugins.js';
 export * from './store.js';
 export * from './vault-memory.js';
 export * from './remote.js';

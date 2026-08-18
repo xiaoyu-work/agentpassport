@@ -8,6 +8,7 @@ import { restoreCommand } from './commands/restore.js';
 import { diffCommand } from './commands/diff.js';
 import { syncCommand } from './commands/sync.js';
 import { memoryCommand } from './commands/memory.js';
+import { pluginsCommand } from './commands/plugins.js';
 import { bold, dim, fail, line } from './ui.js';
 
 const HELP = `${bold('agentpass')} — Sign in to your AI.
@@ -25,6 +26,7 @@ ${bold('Commands')}
   logout
   status                         Passport, memory, and agent overview
   scan                           List detected agents and their config files
+  plugins                        Which agent adapters are installed
   import [agent] [--dry-run]     Agent config -> passport
   restore [agent] [--dry-run]    Passport -> agent config
   diff [agent]                   Show both directions without changing anything
@@ -36,8 +38,13 @@ ${bold('Commands')}
   memory approve <id>            Accept a memory held for review
   memory forget <id>             Delete everywhere, from every agent
 
-${bold('Agents')}
-  claude, openclaw, codex, cursor
+${bold('Agent plugins')}
+  Adapters are optional. Install only the agents you use:
+    npm install @agentpass/adapter-claude
+    npm install @agentpass/adapter-openclaw
+    npm install @agentpass/adapter-codex
+    npm install @agentpass/adapter-cursor
+  Anything named agentpass-adapter-* is discovered automatically.
 
 ${bold('Environment')}
   AGENTPASS_HOME                 Passport directory (default ~/.agentpass)
@@ -97,6 +104,8 @@ async function main(argv: string[]): Promise<number> {
     case 'scan':
     case 'detect':
       return scan(passport);
+    case 'plugins':
+      return pluginsCommand(passport);
     case 'import':
       return importCommand(passport, rest[0], args);
     case 'restore':

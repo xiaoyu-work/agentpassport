@@ -1,4 +1,4 @@
-import { diffAgent, discoverAgents, type Passport } from '@agentpass/core';
+import { diffAgent, discoverAgents, usableAgents, type Passport } from '@agentpass/core';
 import { renderDiffLines } from '@agentpass/sync';
 import { bullet, dim, heading, line, ok, readPassphrase, warn } from '../ui.js';
 
@@ -11,9 +11,7 @@ import { bullet, dim, heading, line, ok, readPassphrase, warn } from '../ui.js';
 export async function diffCommand(passport: Passport, agent: string | undefined): Promise<number> {
   const passphrase = await readPassphrase();
 
-  const agents = agent
-    ? [agent]
-    : (await discoverAgents(passport)).filter((a) => a.installed).map((a) => a.id);
+  const agents = agent ? [agent] : usableAgents(await discoverAgents(passport)).map((a) => a.id);
 
   if (agents.length === 0) {
     warn('No supported agents found on this machine.');
@@ -22,7 +20,7 @@ export async function diffCommand(passport: Passport, agent: string | undefined)
 
   let changes = 0;
   for (const id of agents) {
-    const adapter = passport.adapter(id);
+    const adapter = await passport.adapter(id);
     let result: Awaited<ReturnType<typeof diffAgent>>;
     try {
       result = await diffAgent(passport, { agent: id, passphrase });

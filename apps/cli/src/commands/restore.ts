@@ -40,7 +40,7 @@ export async function restoreCommand(
 
   let effective = 0;
   for (const preview of previews) {
-    const adapter = passport.adapter(preview.agent);
+    const adapter = await passport.adapter(preview.agent);
     const changes = preview.plan.changes.filter((change) => change.op !== 'unchanged');
     effective += changes.length;
 
@@ -104,7 +104,7 @@ export async function restoreCommand(
   }
   line('');
   for (const result of applied) {
-    const adapter = passport.adapter(result.agent);
+    const adapter = await passport.adapter(result.agent);
     ok(`Restored to ${adapter.displayName} ${dim(`(${result.written.length} file(s))`)}`);
   }
   return 0;
