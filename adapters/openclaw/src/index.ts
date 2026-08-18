@@ -29,14 +29,14 @@ import {
   type ImportResult,
   type ValidationIssue,
   type ValidationResult,
-} from '@agentpass/adapter-sdk';
+} from '@agentpassport/adapter-sdk';
 import {
   extractMemories,
   isRestorable,
   type MemoryDraft,
   type MemoryRecord,
-} from '@agentpass/memory';
-import { createEmptyProfile, type McpServer, type UniversalProfile } from '@agentpass/profile';
+} from '@agentpassport/memory';
+import { createEmptyProfile, type McpServer, type UniversalProfile } from '@agentpassport/profile';
 import {
   openclawPaths,
   primaryModel,

@@ -1,2 +1,2 @@
-export { Passport } from '@agentpass/core';
-export * from '@agentpass/core';
+export { Passport } from '@agentpassport/core';
+export * from '@agentpassport/core';

@@ -1,5 +1,5 @@
 {
-  "name": "@agentpass/crypto",
+  "name": "@agentpassport/crypto",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "type": "module",
@@ -16,5 +16,19 @@
   ],
   "scripts": {
     "build": "tsc -b"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agentpassport/agentpassport.git"
+  },
+  "homepage": "https://github.com/agentpassport/agentpassport",
+  "bugs": {
+    "url": "https://github.com/agentpassport/agentpassport/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

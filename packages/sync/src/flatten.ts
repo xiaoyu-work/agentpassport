@@ -6,7 +6,7 @@ import {
   type Skill,
   type UniversalProfile,
   type WorkspaceRule,
-} from '@agentpass/profile';
+} from '@agentpassport/profile';
 
 /**
  * One addressable, independently mergeable unit of a profile.

@@ -1,4 +1,9 @@
-import { restoreAll, restoreToAgent, type Passport, type RestoreOutcome } from '@agentpass/core';
+import {
+  restoreAll,
+  restoreToAgent,
+  type Passport,
+  type RestoreOutcome,
+} from '@agentpassport/core';
 import { bullet, confirm, cyan, dim, heading, line, ok, warn } from '../ui.js';
 
 /**

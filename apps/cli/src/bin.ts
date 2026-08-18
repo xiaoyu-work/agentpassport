@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
-import { Passport } from '@agentpass/core';
+import { Passport } from '@agentpassport/core';
 import { setUp, signOut } from './commands/auth.js';
 import { scan, status } from './commands/status.js';
 import { importCommand } from './commands/import.js';
@@ -41,7 +41,7 @@ ${bold('Unlocking')}
   adds another computer.
 
 ${bold('Tool support is optional')}
-  npm install @agentpass/adapter-claude     # or -openclaw, -codex, -cursor
+  npm install @agentpassport/adapter-claude     # or -openclaw, -codex, -cursor
   Anything named agentpass-adapter-* is discovered automatically.
 
 ${bold('Environment')}

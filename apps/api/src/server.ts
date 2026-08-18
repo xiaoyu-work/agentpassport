@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { EncryptedEnvelope, Keyring } from '@agentpass/crypto';
+import type { EncryptedEnvelope, Keyring } from '@agentpassport/crypto';
 
 /**
  * Reference sync server.

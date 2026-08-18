@@ -7,7 +7,7 @@ import {
   validatePlugin,
   type AdapterPlugin,
   type AgentAdapter,
-} from '@agentpass/adapter-sdk';
+} from '@agentpassport/adapter-sdk';
 import { bundledPackages } from './catalog.js';
 
 export type PluginOrigin = 'bundled' | 'installed' | 'user';
@@ -143,18 +143,18 @@ async function candidates(options: LoadOptions): Promise<Candidate[]> {
 }
 
 /**
- * Packages under the `@agentpass/adapter-` prefix that are not adapters.
+ * Packages under the `@agentpassport/adapter-` prefix that are not adapters.
  *
  * The naming convention that makes discovery work also catches the SDK every adapter
  * depends on, which would otherwise be reported as a broken plugin on every run.
  */
-const NOT_ADAPTERS = new Set(['@agentpass/adapter-sdk']);
+const NOT_ADAPTERS = new Set(['@agentpassport/adapter-sdk']);
 
 /**
  * Third-party plugins published to npm.
  *
  * The naming convention is the discovery mechanism: anything called
- * `agentpass-adapter-*` or `@agentpass/adapter-*` is picked up without configuration, so
+ * `agentpass-adapter-*` or `@agentpassport/adapter-*` is picked up without configuration, so
  * publishing a new agent's support requires no change here.
  */
 async function installedPlugins(): Promise<string[]> {
@@ -163,14 +163,14 @@ async function installedPlugins(): Promise<string[]> {
 
   for (const root of roots) {
     for (const name of await safeReaddir(root)) {
-      if (name.startsWith('agentpass-adapter-')) {
+      if (name.startsWith('agentpass-adapter-') || name.startsWith('agentpassport-adapter-')) {
         specifiers.add(name);
         continue;
       }
       if (name !== '@agentpass') continue;
       for (const scoped of await safeReaddir(join(root, name))) {
         if (!scoped.startsWith('adapter-')) continue;
-        const specifier = `@agentpass/${scoped}`;
+        const specifier = `@agentpassport/${scoped}`;
         if (NOT_ADAPTERS.has(specifier)) continue;
         specifiers.add(specifier);
       }

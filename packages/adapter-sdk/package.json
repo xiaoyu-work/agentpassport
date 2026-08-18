@@ -1,5 +1,5 @@
 {
-  "name": "@agentpass/adapter-sdk",
+  "name": "@agentpassport/adapter-sdk",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "type": "module",
@@ -18,8 +18,22 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@agentpass/memory": "*",
-    "@agentpass/profile": "*",
+    "@agentpassport/memory": "^0.1.0",
+    "@agentpassport/profile": "^0.1.0",
     "yaml": "^2.9.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agentpassport/agentpassport.git"
+  },
+  "homepage": "https://github.com/agentpassport/agentpassport",
+  "bugs": {
+    "url": "https://github.com/agentpassport/agentpassport/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

@@ -10,8 +10,8 @@ import {
   type UniversalProfile,
   type Workspace,
   type WorkspaceRule,
-} from '@agentpass/profile';
-import { McpServerSchema, SkillSchema, WorkspaceRuleSchema } from '@agentpass/profile';
+} from '@agentpassport/profile';
+import { McpServerSchema, SkillSchema, WorkspaceRuleSchema } from '@agentpassport/profile';
 import type { ParsedInstructions } from './instructions.js';
 
 type IdentityField = Exclude<keyof Identity, 'userId'>;

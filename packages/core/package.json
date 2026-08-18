@@ -1,5 +1,5 @@
 {
-  "name": "@agentpass/core",
+  "name": "@agentpassport/core",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "type": "module",
@@ -18,18 +18,32 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@agentpass/adapter-sdk": "*",
-    "@agentpass/crypto": "*",
-    "@agentpass/mem0": "*",
-    "@agentpass/memory": "*",
-    "@agentpass/profile": "*",
-    "@agentpass/secrets": "*",
-    "@agentpass/sync": "*"
+    "@agentpassport/adapter-sdk": "^0.1.0",
+    "@agentpassport/crypto": "^0.1.0",
+    "@agentpassport/mem0": "^0.1.0",
+    "@agentpassport/memory": "^0.1.0",
+    "@agentpassport/profile": "^0.1.0",
+    "@agentpassport/secrets": "^0.1.0",
+    "@agentpassport/sync": "^0.1.0"
   },
   "optionalDependencies": {
-    "@agentpass/adapter-claude": "*",
-    "@agentpass/adapter-codex": "*",
-    "@agentpass/adapter-cursor": "*",
-    "@agentpass/adapter-openclaw": "*"
+    "@agentpassport/adapter-claude": "^0.1.0",
+    "@agentpassport/adapter-codex": "^0.1.0",
+    "@agentpassport/adapter-cursor": "^0.1.0",
+    "@agentpassport/adapter-openclaw": "^0.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agentpassport/agentpassport.git"
+  },
+  "homepage": "https://github.com/agentpassport/agentpassport",
+  "bugs": {
+    "url": "https://github.com/agentpassport/agentpassport/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

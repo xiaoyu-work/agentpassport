@@ -9,9 +9,9 @@ import {
   syncProfile,
   type RemoteProfile,
   type RemoteStore,
-} from '@agentpass/core';
-import type { EncryptedEnvelope, Keyring } from '@agentpass/crypto';
-import { createEmptyProfile } from '@agentpass/profile';
+} from '@agentpassport/core';
+import type { EncryptedEnvelope, Keyring } from '@agentpassport/crypto';
+import { createEmptyProfile } from '@agentpassport/profile';
 import { makeSandbox, read, seedClaude } from './helpers.ts';
 
 /** In-memory stand-in for the sync server, exercising the same contract. */

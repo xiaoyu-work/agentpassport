@@ -7,7 +7,7 @@ import {
   type MemoryProvider,
   type MemoryQuery,
   type MemoryRecord,
-} from '@agentpass/memory';
+} from '@agentpassport/memory';
 import type { ProfileStore } from './store.js';
 
 /**

@@ -30,9 +30,9 @@ import {
   type ImportResult,
   type ValidationIssue,
   type ValidationResult,
-} from '@agentpass/adapter-sdk';
-import { extractMemories, type MemoryDraft, type MemoryRecord } from '@agentpass/memory';
-import { createEmptyProfile, type McpServer, type UniversalProfile } from '@agentpass/profile';
+} from '@agentpassport/adapter-sdk';
+import { extractMemories, type MemoryDraft, type MemoryRecord } from '@agentpassport/memory';
+import { createEmptyProfile, type McpServer, type UniversalProfile } from '@agentpassport/profile';
 import {
   claudePaths,
   type ClaudeGlobalJson,

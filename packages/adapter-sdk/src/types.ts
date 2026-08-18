@@ -1,5 +1,5 @@
-import type { MemoryDraft, MemoryRecord } from '@agentpass/memory';
-import type { UniversalProfile } from '@agentpass/profile';
+import type { MemoryDraft, MemoryRecord } from '@agentpassport/memory';
+import type { UniversalProfile } from '@agentpassport/profile';
 
 /**
  * Everything an adapter is allowed to know about the machine it runs on.

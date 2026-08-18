@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { createEmptyProfile } from '@agentpass/profile';
-import { formatRecoveryCode, isRecoveryCodeShaped } from '@agentpass/crypto';
-import type { Passport, RemoteProfile } from '@agentpass/core';
+import { createEmptyProfile } from '@agentpassport/profile';
+import { formatRecoveryCode, isRecoveryCodeShaped } from '@agentpassport/crypto';
+import type { Passport, RemoteProfile } from '@agentpassport/core';
 import { ask, bold, cyan, dim, heading, line, ok, warn } from '../ui.js';
 
 /**

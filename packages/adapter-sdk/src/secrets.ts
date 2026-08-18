@@ -1,4 +1,4 @@
-import { SECRET_REFERENCE_PATTERN } from '@agentpass/profile';
+import { SECRET_REFERENCE_PATTERN } from '@agentpassport/profile';
 import type { AdapterWarning } from './types.js';
 
 /** Variable names that conventionally hold credential material. */

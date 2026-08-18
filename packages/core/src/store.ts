@@ -17,10 +17,10 @@ import {
   UnlockError,
   type EncryptedEnvelope,
   type Keyring,
-} from '@agentpass/crypto';
-import { MemoryRecordSchema, type MemoryRecord } from '@agentpass/memory';
-import { parseProfile, type UniversalProfile } from '@agentpass/profile';
-import type { Revision } from '@agentpass/sync';
+} from '@agentpassport/crypto';
+import { MemoryRecordSchema, type MemoryRecord } from '@agentpassport/memory';
+import { parseProfile, type UniversalProfile } from '@agentpassport/profile';
+import type { Revision } from '@agentpassport/sync';
 import { ensureDeviceKey, openDeviceKeyStore, type DeviceKeyStore } from './device-key.js';
 
 export interface Session {

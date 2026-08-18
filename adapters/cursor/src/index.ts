@@ -29,14 +29,14 @@ import {
   type ImportResult,
   type ValidationIssue,
   type ValidationResult,
-} from '@agentpass/adapter-sdk';
-import { extractMemories, type MemoryDraft, type MemoryRecord } from '@agentpass/memory';
+} from '@agentpassport/adapter-sdk';
+import { extractMemories, type MemoryDraft, type MemoryRecord } from '@agentpassport/memory';
 import {
   createEmptyProfile,
   type McpServer,
   type UniversalProfile,
   type WorkspaceRule,
-} from '@agentpass/profile';
+} from '@agentpassport/profile';
 
 const AGENT_ID = 'cursor';
 const PASSPORT_RULE_FILE = 'agent-passport.mdc';

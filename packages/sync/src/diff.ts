@@ -1,4 +1,4 @@
-import { sectionOf, type UniversalProfile } from '@agentpass/profile';
+import { sectionOf, type UniversalProfile } from '@agentpassport/profile';
 import { flattenProfile, type FlatEntry } from './flatten.js';
 
 export type DiffOperation = 'added' | 'removed' | 'updated';

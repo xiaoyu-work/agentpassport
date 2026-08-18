@@ -1,8 +1,8 @@
-import type { AdapterContext, AdapterRegistry, AgentAdapter } from '@agentpass/adapter-sdk';
-import type { MemoryProvider } from '@agentpass/memory';
-import { Mem0Provider } from '@agentpass/mem0';
-import type { UniversalProfile } from '@agentpass/profile';
-import { SecretRegistry } from '@agentpass/secrets';
+import type { AdapterContext, AdapterRegistry, AgentAdapter } from '@agentpassport/adapter-sdk';
+import type { MemoryProvider } from '@agentpassport/memory';
+import { Mem0Provider } from '@agentpassport/mem0';
+import type { UniversalProfile } from '@agentpassport/profile';
+import { SecretRegistry } from '@agentpassport/secrets';
 import { catalogEntry } from './catalog.js';
 import { agentpassHome, deviceId as resolveDeviceId, deviceName } from './paths.js';
 import { loadPlugins, type PluginLoadResult } from './plugins.js';

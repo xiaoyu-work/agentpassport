@@ -1,8 +1,8 @@
 import { ok, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import { join } from 'node:path';
-import { Passport, importFromAgent, restoreToAgent } from '@agentpass/core';
-import { createEmptyProfile } from '@agentpass/profile';
+import { Passport, importFromAgent, restoreToAgent } from '@agentpassport/core';
+import { createEmptyProfile } from '@agentpassport/profile';
 import { makeSandbox, read, seedClaude, write } from './helpers.ts';
 
 const AGENTS = ['claude', 'openclaw', 'codex', 'cursor'] as const;

@@ -1,4 +1,4 @@
-import { AGENT_CATALOG, discoverAgents, missingPlugins, type Passport } from '@agentpass/core';
+import { AGENT_CATALOG, discoverAgents, missingPlugins, type Passport } from '@agentpassport/core';
 import { bullet, cyan, dim, heading, line, ok, warn, yellow } from '../ui.js';
 
 /**

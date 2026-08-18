@@ -1,4 +1,4 @@
-import type { EncryptedEnvelope, Keyring } from '@agentpass/crypto';
+import type { EncryptedEnvelope, Keyring } from '@agentpassport/crypto';
 
 export interface RemoteProfile {
   envelope: EncryptedEnvelope;

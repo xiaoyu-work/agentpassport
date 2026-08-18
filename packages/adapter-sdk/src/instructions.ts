@@ -3,8 +3,8 @@ import {
   type Project,
   type UniversalProfile,
   type WorkspaceRule,
-} from '@agentpass/profile';
-import { isRestorable, type MemoryRecord } from '@agentpass/memory';
+} from '@agentpassport/profile';
+import { isRestorable, type MemoryRecord } from '@agentpassport/memory';
 
 /**
  * The agent-neutral body written into CLAUDE.md, AGENTS.md, and Cursor rules.

@@ -1,6 +1,6 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Skill } from '@agentpass/profile';
+import type { Skill } from '@agentpassport/profile';
 import { readTextIfExists } from './fsx.js';
 import { parseFrontmatter, renderFrontmatter } from './markdown.js';
 

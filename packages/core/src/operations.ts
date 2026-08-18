@@ -4,8 +4,8 @@ import {
   selectForAgent,
   type MemoryDraft,
   type MemoryRecord,
-} from '@agentpass/memory';
-import { contentHash, type UniversalProfile } from '@agentpass/profile';
+} from '@agentpassport/memory';
+import { contentHash, type UniversalProfile } from '@agentpassport/profile';
 import {
   appendRevision,
   diffProfiles,
@@ -14,8 +14,8 @@ import {
   type ProfileDiff,
   type Revision,
   type Side,
-} from '@agentpass/sync';
-import type { AdapterWarning, AgentConfigDiff } from '@agentpass/adapter-sdk';
+} from '@agentpassport/sync';
+import type { AdapterWarning, AgentConfigDiff } from '@agentpassport/adapter-sdk';
 import type { Passport } from './passport.js';
 import { mergeMemories } from './vault-memory.js';
 import { ConflictError, NullRemoteStore } from './remote.js';

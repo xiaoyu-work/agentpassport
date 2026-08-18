@@ -15,7 +15,7 @@ import {
   sealEnvelope,
   unlockWithDeviceKey,
   unlockWithRecoveryCode,
-} from '@agentpass/crypto';
+} from '@agentpassport/crypto';
 import {
   appliesToAgent,
   classify,
@@ -27,9 +27,9 @@ import {
   summarizeSharing,
   MemoryRecordSchema,
   type MemoryRecord,
-} from '@agentpass/memory';
-import { createEmptyProfile } from '@agentpass/profile';
-import { diffProfiles, mergeProfiles } from '@agentpass/sync';
+} from '@agentpassport/memory';
+import { createEmptyProfile } from '@agentpassport/profile';
+import { diffProfiles, mergeProfiles } from '@agentpassport/sync';
 
 function memory(overrides: Partial<MemoryRecord> = {}): MemoryRecord {
   return MemoryRecordSchema.parse({

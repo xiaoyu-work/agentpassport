@@ -1,5 +1,5 @@
-import { diffAgent, discoverAgents, usableAgents, type Passport } from '@agentpass/core';
-import { renderDiffLines } from '@agentpass/sync';
+import { diffAgent, discoverAgents, usableAgents, type Passport } from '@agentpassport/core';
+import { renderDiffLines } from '@agentpassport/sync';
 import { bullet, dim, heading, line, ok, warn } from '../ui.js';
 
 /**

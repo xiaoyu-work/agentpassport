@@ -1,11 +1,11 @@
-import type { Passport } from '@agentpass/core';
+import type { Passport } from '@agentpassport/core';
 import {
   appliesToAgent,
   restrictToAgents,
   share,
   summarizeSharing,
   type MemoryRecord,
-} from '@agentpass/memory';
+} from '@agentpassport/memory';
 import { bullet, cyan, dim, heading, line, ok, warn, yellow } from '../ui.js';
 
 /**

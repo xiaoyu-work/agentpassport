@@ -45,23 +45,19 @@ translates it into whatever each agent natively reads.
                         └─────────────────────────┘
 ```
 
-## Quick start (5 minutes)
-
-Requires Node.js 22+.
+## Install
 
 ```console
-git clone <this-repo> && cd agentpassport
-npm install
-npm run build
+npm install -g agentpassport
 ```
 
-Link the CLI so `agentpass` is on your PATH:
+That gives you the `agentpass` command. To try it without installing anything:
 
 ```console
-npm link --workspace agentpass
+npx agentpassport scan
 ```
 
-Then:
+Requires Node.js 22 or newer. Nothing else — no compiler, no native modules, no account.
 
 ```console
 agentpass scan       # what's installed on this machine
@@ -71,11 +67,65 @@ agentpass restore    # write your identity into every agent
 ```
 
 Nothing is guessed about your setup. Agent paths are fixed and well known, so discovery is
-automatic.
+automatic. `agentpass` on its own shows what is stored and what each agent can see.
 
-`agentpass` on its own shows what is stored and what each agent can see.
+## Where your data lives
 
-### There is no passphrase
+Everything is a file you can inspect, move, or delete. There is no hidden state.
+
+### On this computer — `~/.agentpass/`
+
+| File            | Contents                                                       |
+| --------------- | -------------------------------------------------------------- |
+| `vault.json`    | Your profile and memories, encrypted. Plus the key slots.      |
+| `device-id`     | A random id for this machine, so renaming your laptop is safe. |
+| `keystore.json` | Which credential store was chosen here.                        |
+| `device.key`    | Only when no OS credential store is usable (see below).        |
+
+Inside `vault.json`, only routing metadata is readable — your user id, device name, and a
+local revision log. The profile itself is ciphertext:
+
+```json
+{
+  "session": { "userId": "user_8f0afaa7", "device": "workshop-mbp" },
+  "keyring": { "slots": [{ "id": "device:2c09533f", "type": "device" }, { "id": "recovery" }] },
+  "profile": { "body": { "iv": "QGkIW7Ue...", "ct": "5GqHZ6h2QmSxHZSX..." } }
+}
+```
+
+Grep it for `pnpm`, `github`, or your API keys and you will not find them.
+
+### In the cloud — only if you set a server
+
+Sync is off unless you pass `--server`. When it is on, the server receives one opaque blob
+plus the few fields it needs to order writes:
+
+```json
+{ "userId": "...", "revision": 3, "updatedAt": "...", "contentHash": "...", "body": "<ciphertext>" }
+```
+
+It cannot read a profile, merge one, or tell two users' preferences apart.
+
+### In your agents — only inside a fenced block
+
+`restore` writes to the agents' own config files, and only between markers:
+
+```
+~/.claude/CLAUDE.md            ~/.openclaw/workspace/AGENTS.md
+~/.claude/settings.json        ~/.openclaw/workspace/MEMORY.md
+~/.claude.json                 ~/.openclaw/openclaw.json
+~/.codex/config.toml           .cursor/rules/agent-passport.mdc
+~/.codex/AGENTS.md             .cursor/mcp.json
+```
+
+Everything you wrote yourself is preserved byte for byte.
+
+### What is never stored anywhere
+
+API keys and tokens. Agent Passport keeps a reference such as `env://GITHUB_TOKEN` or
+`op://Private/openai/credential`, never the value.
+
+## There is no passphrase
 
 `setup` asks you for nothing. The vault key is generated for you and kept in this machine's
 credential store — macOS Keychain, Windows account protection, or the Linux system keyring —
@@ -103,14 +153,9 @@ agentpass setup --user-id <your-id> --server <url> --code CXXA-T80X-936K-K9ST-38
 The code is never uploaded and cannot be reissued for you. If you want a passphrase as well,
 you can add one; the vault supports several independent ways to unlock the same key.
 
-### Try it without touching your real config
-
-```console
-$env:AGENTPASS_AGENT_HOME = "$env:TEMP\demo-home"   # pretend HOME for agents
-$env:AGENTPASS_HOME       = "$env:TEMP\demo-pass"   # where the passport lives
-```
-
-On macOS or Linux use `export` instead of `$env:`.
+If no OS credential store is usable — a locked-down PowerShell, a headless container —
+Agent Passport says so and falls back to a file only your account can read. That is weaker,
+so it is named plainly rather than dressed up.
 
 ## Agents are plugins
 
@@ -118,15 +163,15 @@ You should not have to carry a Cursor adapter to use Claude Code. Each agent's s
 separate, optional package, and Agent Passport works with none of them installed.
 
 ```console
-npm install @agentpass/adapter-claude
-npm install @agentpass/adapter-openclaw
-npm install @agentpass/adapter-codex
-npm install @agentpass/adapter-cursor
+npm install @agentpassport/adapter-claude
+npm install @agentpassport/adapter-openclaw
+npm install @agentpassport/adapter-codex
+npm install @agentpassport/adapter-cursor
 ```
 
 Plugins are found automatically — from `node_modules`, from `~/.agentpass/plugins/`, or
 from a list in `~/.agentpass/plugins.json`. Any package named `agentpass-adapter-*` or
-`@agentpass/adapter-*` is picked up with no configuration.
+`@agentpassport/adapter-*` is picked up with no configuration.
 
 Core keeps a small table of well-known agent paths, which solves a chicken-and-egg problem:
 properly detecting an agent needs its adapter, but we want to tell you an agent is present
@@ -142,11 +187,11 @@ Installed plugins
 Detected here, but no plugin installed
   ● OpenAI Codex
     ~/.codex/config.toml
-    npm install @agentpass/adapter-codex
+    npm install @agentpassport/adapter-codex
 
 Available
-  · OpenClaw — @agentpass/adapter-openclaw
-  · Cursor — @agentpass/adapter-cursor
+  · OpenClaw — @agentpassport/adapter-openclaw
+  · Cursor — @agentpassport/adapter-cursor
 ```
 
 `scan` marks the same distinction, and `import`/`restore` act only on agents that are both
@@ -352,7 +397,7 @@ change to this repository, and no new release of the CLI.
 Implement one interface and export a plugin manifest:
 
 ```ts
-import { ADAPTER_API_VERSION, definePlugin } from '@agentpass/adapter-sdk';
+import { ADAPTER_API_VERSION, definePlugin } from '@agentpassport/adapter-sdk';
 
 export interface AgentAdapter {
   readonly id: string;
@@ -447,6 +492,22 @@ Postgres and the token for a real identity provider; the contract does not chang
 ## Development
 
 ```console
+git clone https://github.com/agentpassport/agentpassport && cd agentpassport
+npm install
+npm run build
+npm link --workspace agentpassport
+```
+
+Run against a fake home so you never touch your real agent configuration:
+
+```console
+$env:AGENTPASS_AGENT_HOME = "$env:TEMP\demo-home"   # pretend HOME for agents
+$env:AGENTPASS_HOME       = "$env:TEMP\demo-pass"   # where the passport lives
+```
+
+On macOS or Linux use `export` instead of `$env:`.
+
+```console
 npm run build
 npm test
 npm run check
@@ -454,6 +515,17 @@ npm run check
 
 The test suite runs every adapter against temporary directories, so it never reads or
 writes your real agent configuration.
+
+### Releasing
+
+```console
+npm run release:dry     # rewrite workspace versions, build, and dry-run publish
+npm run release         # the real thing
+```
+
+Workspace dependencies are written as `*` while developing, which npm cannot resolve from
+the registry. `release:prepare` rewrites them to the current version and fills in the
+publish metadata, so a release is one command rather than a checklist.
 
 ## License
 

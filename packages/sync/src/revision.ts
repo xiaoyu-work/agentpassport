@@ -1,4 +1,4 @@
-import { contentHash, type UniversalProfile } from '@agentpass/profile';
+import { contentHash, type UniversalProfile } from '@agentpassport/profile';
 
 export interface Revision {
   revision: number;

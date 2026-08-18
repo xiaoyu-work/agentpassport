@@ -1,9 +1,9 @@
 import { deepStrictEqual, ok, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import { join } from 'node:path';
-import { Passport, discoverAgents, importFromAgent, restoreToAgent } from '@agentpass/core';
-import { createEmptyProfile } from '@agentpass/profile';
-import { selectForAgent } from '@agentpass/memory';
+import { Passport, discoverAgents, importFromAgent, restoreToAgent } from '@agentpassport/core';
+import { createEmptyProfile } from '@agentpassport/profile';
+import { selectForAgent } from '@agentpassport/memory';
 import { makeSandbox, read, readIfExists, seedClaude } from './helpers.ts';
 
 async function signedInPassport(name: string) {

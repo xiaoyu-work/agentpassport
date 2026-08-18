@@ -33,7 +33,7 @@ export const AGENT_CATALOG: CatalogEntry[] = [
   {
     id: 'claude',
     displayName: 'Claude Code',
-    package: '@agentpass/adapter-claude',
+    package: '@agentpassport/adapter-claude',
     hints: [
       { path: '~/.claude/CLAUDE.md', kind: 'instructions' },
       { path: '~/.claude/settings.json', kind: 'settings' },
@@ -46,7 +46,7 @@ export const AGENT_CATALOG: CatalogEntry[] = [
   {
     id: 'openclaw',
     displayName: 'OpenClaw',
-    package: '@agentpass/adapter-openclaw',
+    package: '@agentpassport/adapter-openclaw',
     hints: [
       { path: '~/.openclaw/openclaw.json', kind: 'settings' },
       { path: '~/.openclaw/workspace/AGENTS.md', kind: 'instructions' },
@@ -58,7 +58,7 @@ export const AGENT_CATALOG: CatalogEntry[] = [
   {
     id: 'codex',
     displayName: 'OpenAI Codex',
-    package: '@agentpass/adapter-codex',
+    package: '@agentpassport/adapter-codex',
     hints: [
       { path: '~/.codex/config.toml', kind: 'settings' },
       { path: '~/.codex/AGENTS.md', kind: 'instructions' },
@@ -69,7 +69,7 @@ export const AGENT_CATALOG: CatalogEntry[] = [
   {
     id: 'cursor',
     displayName: 'Cursor',
-    package: '@agentpass/adapter-cursor',
+    package: '@agentpassport/adapter-cursor',
     hints: [
       { path: '~/.cursor/mcp.json', kind: 'mcp' },
       { path: './.cursor/rules', kind: 'instructions' },

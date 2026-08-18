@@ -1,4 +1,4 @@
-import { sectionOf, type FieldMeta, type UniversalProfile } from '@agentpass/profile';
+import { sectionOf, type FieldMeta, type UniversalProfile } from '@agentpassport/profile';
 import type { DiffEntry } from './diff.js';
 import { flattenProfile, type FlatEntry } from './flatten.js';
 

@@ -8,7 +8,7 @@ import {
   type MemoryQuery,
   type MemoryRecord,
   appliesToAgent,
-} from '@agentpass/memory';
+} from '@agentpassport/memory';
 
 export interface Mem0Options {
   apiKey: string;

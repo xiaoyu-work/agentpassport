@@ -25,7 +25,10 @@
     "lint": "eslint .",
     "agentpass": "node apps/cli/dist/bin.js",
     "test": "node --test --test-concurrency=1 \"test/*.test.ts\"",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --pretty false",
+    "release:prepare": "tsx scripts/prepare-release.ts",
+    "release:dry": "npm run release:prepare && npm run build && npm publish --workspaces --dry-run",
+    "release": "npm run release:prepare && npm run check && npm publish --workspaces"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
@@ -33,6 +36,7 @@
     "eslint": "^9.39.2",
     "prettier": "^3.6.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.1"
+    "typescript-eslint": "^8.46.1",
+    "tsx": "^4.20.6"
   }
 }

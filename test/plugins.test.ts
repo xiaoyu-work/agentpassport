@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { Passport, discoverAgents, missingPlugins, usableAgents } from '@agentpass/core';
-import { createEmptyProfile } from '@agentpass/profile';
-import { ADAPTER_API_VERSION, validateAdapter, validatePlugin } from '@agentpass/adapter-sdk';
+import { Passport, discoverAgents, missingPlugins, usableAgents } from '@agentpassport/core';
+import { createEmptyProfile } from '@agentpassport/profile';
+import { ADAPTER_API_VERSION, validateAdapter, validatePlugin } from '@agentpassport/adapter-sdk';
 import { makeSandbox, seedClaude } from './helpers.ts';
 
 async function passportFor(
@@ -67,7 +67,7 @@ test('a detected agent with no plugin is reported with an install hint', async (
   ok(claude, 'claude should still be discovered from path hints alone');
   strictEqual(claude.installed, true, 'core notices the config without the plugin');
   strictEqual(claude.pluginInstalled, false);
-  strictEqual(claude.package, '@agentpass/adapter-claude');
+  strictEqual(claude.package, '@agentpassport/adapter-claude');
   ok(claude.files.length > 0, 'hint paths should be reported');
 
   const missing = missingPlugins(discovered);
@@ -87,7 +87,10 @@ test('asking for an agent whose plugin is missing explains how to fix it', async
   } catch (error) {
     message = (error as Error).message;
   }
-  ok(message.includes('@agentpass/adapter-cursor'), `expected an install hint, got: ${message}`);
+  ok(
+    message.includes('@agentpassport/adapter-cursor'),
+    `expected an install hint, got: ${message}`,
+  );
 
   let unknown = '';
   try {

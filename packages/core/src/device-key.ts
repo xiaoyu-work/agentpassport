@@ -3,7 +3,7 @@ import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { platform } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
-import { randomKey } from '@agentpass/crypto';
+import { randomKey } from '@agentpassport/crypto';
 
 const run = promisify(execFile);
 

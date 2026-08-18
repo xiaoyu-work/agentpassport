@@ -1,5 +1,5 @@
-import { discoverAgents, missingPlugins, usableAgents, type Passport } from '@agentpass/core';
-import { summarizeSharing } from '@agentpass/memory';
+import { discoverAgents, missingPlugins, usableAgents, type Passport } from '@agentpassport/core';
+import { summarizeSharing } from '@agentpassport/memory';
 import { bullet, cyan, dim, formatBytes, heading, line, ok, warn, yellow } from '../ui.js';
 
 /**

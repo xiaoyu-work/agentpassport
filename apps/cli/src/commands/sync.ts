@@ -1,5 +1,5 @@
-import { syncProfile, type Passport } from '@agentpass/core';
-import { renderDiffLines, type Side } from '@agentpass/sync';
+import { syncProfile, type Passport } from '@agentpassport/core';
+import { renderDiffLines, type Side } from '@agentpassport/sync';
 import { ask, bullet, dim, heading, line, ok, warn } from '../ui.js';
 
 /**
