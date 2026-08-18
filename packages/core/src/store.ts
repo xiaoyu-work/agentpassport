@@ -29,10 +29,25 @@ export interface Session {
   /** Issued by the sync server. Absent in fully local mode. */
   token?: string;
   serverUrl?: string;
+  /** Where this passport syncs, once the user has chosen. */
+  sync?: SyncTarget;
   device: string;
   deviceId: string;
   createdAt: string;
 }
+
+/**
+ * How this passport reaches the user's other computers.
+ *
+ * The vault is ciphertext before it leaves, so the transport is free to be something the
+ * user already owns. Running a server should be an option, not a prerequisite for the
+ * product's central promise.
+ */
+export type SyncTarget =
+  | { kind: 'none' }
+  | { kind: 'folder'; path: string }
+  | { kind: 'git'; remote: string; branch?: string }
+  | { kind: 'server'; url: string; token: string };
 
 /**
  * What the encrypted envelope actually contains.
@@ -213,6 +228,13 @@ export class ProfileStore {
 
   async keyring(): Promise<Keyring> {
     return (await this.require()).keyring;
+  }
+
+  /** Record where this passport syncs, so later runs need no flags. */
+  async setSyncTarget(target: SyncTarget): Promise<void> {
+    const vault = await this.require();
+    vault.session.sync = target;
+    await this.write(vault);
   }
 
   /**

@@ -69,6 +69,28 @@ agentpass restore    # write your identity into every agent
 Nothing is guessed about your setup. Agent paths are fixed and well known, so discovery is
 automatic. `agentpass` on its own shows what is stored and what each agent can see.
 
+## Getting onto a second computer
+
+Everything above works on one machine. To carry your identity to another, tell Agent
+Passport where to keep it — a private git repo is usually easiest:
+
+```console
+agentpass sync --git git@github.com:you/ai-passport.git
+```
+
+Then on the new machine, using the recovery code printed at setup:
+
+```console
+npm install -g agentpassport
+agentpass setup --user-id <your-id> --git git@github.com:you/ai-passport.git --code ABCD-...
+agentpass restore
+```
+
+That is the whole cross-machine story. No server to run, no account to create. The repo
+only ever contains ciphertext, so it can live anywhere you can push.
+
+Prefer a synced folder instead? `--folder ~/Dropbox/agentpass` works the same way.
+
 ## Where your data lives
 
 Everything is a file you can inspect, move, or delete. There is no hidden state.
@@ -95,16 +117,30 @@ local revision log. The profile itself is ciphertext:
 
 Grep it for `pnpm`, `github`, or your API keys and you will not find them.
 
-### In the cloud — only if you set a server
+### In the cloud — only if you choose a sync target
 
-Sync is off unless you pass `--server`. When it is on, the server receives one opaque blob
-plus the few fields it needs to order writes:
+Sync is off until you pick where your passport lives. Because the vault is already
+ciphertext, the transport can be something you already own:
 
-```json
-{ "userId": "...", "revision": 3, "updatedAt": "...", "contentHash": "...", "body": "<ciphertext>" }
+```console
+agentpass sync --git git@github.com:you/ai-passport.git   # a private repo
+agentpass sync --folder ~/Dropbox/agentpass               # Dropbox, iCloud, OneDrive
+agentpass sync --server https://...                       # a server, if you run one
 ```
 
-It cannot read a profile, merge one, or tell two users' preferences apart.
+Whichever you choose receives one opaque document and the few fields needed to order
+writes:
+
+```json
+{ "envelope": { "userId": "...", "revision": 3, "body": "<ciphertext>" }, "keyring": { ... } }
+```
+
+GitHub, Dropbox, and Apple cannot read a profile, merge one, or tell two users' preferences
+apart. Merging happens on your machine, on decrypted data, field by field — the transport
+only moves bytes.
+
+A private git repo is usually the best choice for developers: nothing to run, nothing to
+pay for, and a full history of every change for free.
 
 ### In your agents — only inside a fenced block
 
@@ -365,7 +401,8 @@ out of the account.
 | `agentpass import [agent]`                | Agent config → passport (all agents by default)    |
 | `agentpass restore [agent]`               | Passport → agent config (all agents by default)    |
 | `agentpass diff [agent]`                  | Show both directions, change nothing               |
-| `agentpass sync`                          | Reconcile this machine with the cloud              |
+| `agentpass sync`                          | Reconcile with your other computers                |
+| `agentpass sync --git \| --folder`        | Choose where your passport is kept                 |
 | `agentpass status`                        | Passport, memory audience, and secret reachability |
 | `agentpass memory list`                   | Inspect the shared store                           |
 | `agentpass memory share \| pin \| forget` | Control who sees what                              |
@@ -463,7 +500,10 @@ Set `MEM0_API_KEY` and `memory.provider: mem0` to use [Mem0](https://mem0.ai) in
 adds retrieval and deduplication. Agent Passport implements neither itself; the provenance
 and sharing fields ride along in Mem0 metadata.
 
-## Running the sync server
+## Running your own sync server
+
+Optional. `--git` and `--folder` cover the same need with nothing to operate; this exists
+for teams who want the data on their own infrastructure.
 
 ```console
 node apps/api/dist/server.js

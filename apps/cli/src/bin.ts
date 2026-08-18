@@ -15,19 +15,26 @@ const HELP = `${bold('agentpass')} — your AI identity, on every machine and ev
 
 ${bold('Getting started')}
   agentpass setup                First computer: creates your passport
-  agentpass setup --code <code>  Another computer: joins with your recovery code
+  agentpass import               Read every AI tool found here
+  agentpass restore              Write your identity into every AI tool
+
+${bold('Using a second computer')}
+  agentpass sync --git <url>     Publish, through a repo only you can read
+  agentpass setup --user-id <id> --git <url> --code <recovery>
   agentpass import               Read every AI tool found here
   agentpass restore              Write your identity into every AI tool
 
 ${bold('Commands')}
-  setup [--name <n>] [--email <e>] [--server <url>] [--code <recovery>]
+  setup [--name <n>] [--email <e>] [--code <recovery>] [sync flags]
   status                         What is stored, and which tools see it
   scan                           AI tools detected on this machine
   plugins                        Which tool adapters are installed
   import [tool] [--dry-run]      Tool config -> passport
   restore [tool] [--dry-run]     Passport -> tool config
   diff [tool]                    Show both directions, change nothing
-  sync [--dry-run]               Reconcile this machine with the cloud
+  sync [--dry-run]               Reconcile with your other computers
+  sync --git <url>               Sync through a private git repo
+  sync --folder <path>           Sync through Dropbox, iCloud, OneDrive
   memory list [--agent <id>]     One shared store; see who sees what
   memory search <query>
   memory share <id>              Make a memory visible to every tool
@@ -58,6 +65,9 @@ async function main(argv: string[]): Promise<number> {
     strict: false,
     options: {
       code: { type: 'string' },
+      git: { type: 'string' },
+      folder: { type: 'string' },
+      branch: { type: 'string' },
       help: { type: 'boolean', short: 'h' },
       version: { type: 'boolean', short: 'v' },
       'dry-run': { type: 'boolean' },

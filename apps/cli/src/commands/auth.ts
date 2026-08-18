@@ -1,7 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { createEmptyProfile } from '@agentpassport/profile';
 import { formatRecoveryCode, isRecoveryCodeShaped } from '@agentpassport/crypto';
-import type { Passport, RemoteProfile } from '@agentpassport/core';
+import { join } from 'node:path';
+import {
+  FolderRemoteStore,
+  GitRemoteStore,
+  HttpRemoteStore,
+  type Passport,
+  type SyncTarget,
+} from '@agentpassport/core';
+import { describe, targetFromArgs } from './sync.js';
 import { ask, bold, cyan, dim, heading, line, ok, warn } from '../ui.js';
 
 /**
@@ -15,23 +23,26 @@ export async function setUp(passport: Passport, args: Map<string, string>): Prom
   if (await passport.store.exists()) {
     const session = await passport.store.session();
     line(`This computer is already set up as ${bold(session.userId)}.`);
-    line(dim('Run "agentpass" to open Agent Passport.'));
+    line(dim('Run "agentpass" to see what is stored.'));
     return 0;
   }
 
-  const serverUrl = args.get('server') ?? process.env['AGENTPASS_SERVER'];
-  const token = args.get('token') ?? process.env['AGENTPASS_TOKEN'] ?? 'local-dev-token';
+  const target = targetFromArgs(args);
 
   // Joining an existing account is the common case for a second computer, so check before
   // creating a new identity that could never read the first one's data.
   const code = args.get('code');
-  if (code && serverUrl) {
+  if (code) {
+    if (!target) {
+      warn('Tell me where your passport is kept: --git, --folder, or --server.');
+      return 1;
+    }
     const userId = args.get('user-id');
     if (!userId) {
       warn('Tell me which account to join with --user-id.');
       return 1;
     }
-    return joinExisting(passport, { serverUrl, token, userId, code });
+    return joinExisting(passport, { target, userId, code });
   }
 
   const email = args.get('email');
@@ -47,7 +58,7 @@ export async function setUp(passport: Passport, args: Map<string, string>): Prom
     session: {
       userId,
       ...(email ? { email } : {}),
-      ...(serverUrl ? { serverUrl, token } : {}),
+      ...(target ? { sync: target } : {}),
     },
     profile,
   });
@@ -59,38 +70,64 @@ export async function setUp(passport: Passport, args: Map<string, string>): Prom
   showRecoveryCode(result.recoveryCode);
 
   line('');
-  line(`Next: ${cyan('agentpass')} to open Agent Passport.`);
+  if (target) {
+    line(`Syncing through ${cyan(describe(target))}.`);
+    line(`Next: ${cyan('agentpass import')}, then ${cyan('agentpass sync')}.`);
+  } else {
+    line(`Next: ${cyan('agentpass import')} to read the AI tools on this computer.`);
+    line(dim('To use this on another computer later, run "agentpass sync" to pick a sync method.'));
+  }
   return 0;
 }
 
 async function joinExisting(
   passport: Passport,
-  input: { serverUrl: string; token: string; userId: string; code: string },
+  input: { target: SyncTarget; userId: string; code: string },
 ): Promise<number> {
   if (!isRecoveryCodeShaped(input.code)) {
     warn('That does not look like a recovery code. It looks like ABCD-EFGH-JKMN-PQRS-TVWX.');
     return 1;
   }
 
-  const remote = await fetchExisting(input.serverUrl, input.token, input.userId);
-  if (!remote) {
-    warn('Could not find that account.');
+  const remote = await remoteFor(passport, input.target);
+  const stored = await remote.pull(input.userId);
+  if (!stored) {
+    warn(`No passport for ${input.userId} at ${describe(input.target)}.`);
+    line(dim('Run "agentpass sync" on your first computer to publish it.'));
     return 1;
   }
 
   const result = await passport.store.adopt({
-    session: { userId: input.userId, serverUrl: input.serverUrl, token: input.token },
+    session: { userId: input.userId, sync: input.target },
     recoveryCode: input.code,
-    keyring: remote.keyring,
-    profile: remote.envelope,
+    keyring: stored.keyring,
+    profile: stored.envelope,
   });
 
   heading('Welcome back.');
-  ok(`This computer is now part of your account.`);
+  ok('This computer is now part of your account.');
   line(dim(`It will unlock automatically from now on, using your ${result.keyStore}.`));
   line('');
-  line(`Next: ${cyan('agentpass')} to set up your AI apps here.`);
+  line(`Next: ${cyan('agentpass restore')} to set up the AI tools here.`);
   return 0;
+}
+
+/** Build a transport before a vault exists, which is the case when joining. */
+async function remoteFor(passport: Passport, target: SyncTarget) {
+  switch (target.kind) {
+    case 'folder':
+      return new FolderRemoteStore(target.path);
+    case 'git':
+      return new GitRemoteStore(
+        target.remote,
+        join(passport.home, 'sync-repo'),
+        target.branch ?? 'main',
+      );
+    case 'server':
+      return new HttpRemoteStore(target.url, target.token);
+    default:
+      throw new Error('no sync target');
+  }
 }
 
 export function showRecoveryCode(code: string): void {
@@ -128,24 +165,6 @@ export async function signOut(passport: Passport): Promise<number> {
   ok('Removed from this computer.');
   line(dim('Your AI apps were left exactly as they are.'));
   return 0;
-}
-
-async function fetchExisting(
-  serverUrl: string,
-  token: string,
-  userId: string,
-): Promise<RemoteProfile | undefined> {
-  try {
-    const response = await fetch(
-      `${serverUrl.replace(/\/+$/, '')}/v1/profiles/${encodeURIComponent(userId)}`,
-      { headers: { Authorization: `Bearer ${token}` } },
-    );
-    if (!response.ok) return undefined;
-    const remote = (await response.json()) as RemoteProfile;
-    return remote.keyring ? remote : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function emailToUserId(email: string): string {

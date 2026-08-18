@@ -1,4 +1,5 @@
 import type { AdapterContext, AdapterRegistry, AgentAdapter } from '@agentpassport/adapter-sdk';
+import { join } from 'node:path';
 import type { MemoryProvider } from '@agentpassport/memory';
 import { Mem0Provider } from '@agentpassport/mem0';
 import type { UniversalProfile } from '@agentpassport/profile';
@@ -6,7 +7,8 @@ import { SecretRegistry } from '@agentpassport/secrets';
 import { catalogEntry } from './catalog.js';
 import { agentpassHome, deviceId as resolveDeviceId, deviceName } from './paths.js';
 import { loadPlugins, type PluginLoadResult } from './plugins.js';
-import { ProfileStore } from './store.js';
+import { ProfileStore, type SyncTarget } from './store.js';
+import { FolderRemoteStore, GitRemoteStore } from './sync-backends.js';
 import { VaultMemoryProvider } from './vault-memory.js';
 import { HttpRemoteStore, NullRemoteStore, type RemoteStore } from './remote.js';
 
@@ -144,11 +146,36 @@ export class Passport {
     return new VaultMemoryProvider(this.store, dataKey);
   }
 
+  /**
+   * Build the transport this passport syncs through.
+   *
+   * All three backends move the same encrypted document, so the choice is the user's
+   * convenience rather than a security decision. Falling back to `serverUrl` keeps
+   * passports created before sync targets existed working unchanged.
+   */
   async remote(): Promise<RemoteStore> {
     if (!(await this.store.exists())) return new NullRemoteStore();
     const session = await this.store.session();
-    if (!session.serverUrl || !session.token) return new NullRemoteStore();
-    return new HttpRemoteStore(session.serverUrl, session.token);
+    const target: SyncTarget =
+      session.sync ??
+      (session.serverUrl && session.token
+        ? { kind: 'server', url: session.serverUrl, token: session.token }
+        : { kind: 'none' });
+
+    switch (target.kind) {
+      case 'folder':
+        return new FolderRemoteStore(target.path);
+      case 'git':
+        return new GitRemoteStore(
+          target.remote,
+          join(this.home, 'sync-repo'),
+          target.branch ?? 'main',
+        );
+      case 'server':
+        return new HttpRemoteStore(target.url, target.token);
+      default:
+        return new NullRemoteStore();
+    }
   }
 
   /** Agents with support installed that also appear to be configured on this machine. */
