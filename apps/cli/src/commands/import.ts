@@ -1,17 +1,6 @@
 import { importAll, importFromAgent, type ImportOutcome, type Passport } from '@agentpass/core';
 import { renderDiffLines } from '@agentpass/sync';
-import {
-  bullet,
-  confirm,
-  cyan,
-  dim,
-  heading,
-  line,
-  ok,
-  readPassphrase,
-  warn,
-  yellow,
-} from '../ui.js';
+import { bullet, confirm, cyan, dim, heading, line, ok, warn, yellow } from '../ui.js';
 
 /**
  * Bring existing agent configuration into the passport.
@@ -25,19 +14,18 @@ export async function importCommand(
   args: Map<string, string>,
 ): Promise<number> {
   const dryRun = args.has('dry-run');
-  const passphrase = await readPassphrase();
 
   const outcomes: ImportOutcome[] = [];
   const failures: Array<{ agent: string; error: string }> = [];
 
   if (agent) {
     try {
-      outcomes.push(await importFromAgent(passport, { agent, passphrase, dryRun }));
+      outcomes.push(await importFromAgent(passport, { agent, dryRun }));
     } catch (error) {
       failures.push({ agent, error: (error as Error).message });
     }
   } else {
-    const bulk = await importAll(passport, { passphrase, dryRun });
+    const bulk = await importAll(passport, { dryRun });
     outcomes.push(...bulk.results);
     failures.push(...bulk.failures);
   }
@@ -99,7 +87,7 @@ export async function importCommand(
   const remote = await passport.store.session();
   if (remote.serverUrl && (await confirm('Sync to the cloud now?', true))) {
     const { syncCommand } = await import('./sync.js');
-    return syncCommand(passport, new Map([['passphrase-cached', passphrase]]));
+    return syncCommand(passport, new Map());
   }
   line(`Next: ${dim('agentpass restore')}   (writes your identity into every agent)`);
   return 0;

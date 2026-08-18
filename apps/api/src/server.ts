@@ -123,12 +123,10 @@ function isKeyring(value: unknown): value is Keyring {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<Keyring>;
   return (
-    candidate.v === 1 &&
+    candidate.v === 2 &&
     typeof candidate.keyId === 'string' &&
-    typeof candidate.kdf === 'object' &&
-    candidate.kdf !== null &&
-    typeof candidate.wrappedKey === 'object' &&
-    candidate.wrappedKey !== null
+    Array.isArray(candidate.slots) &&
+    candidate.slots.length > 0
   );
 }
 

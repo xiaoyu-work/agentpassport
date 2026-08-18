@@ -1,5 +1,5 @@
 import { restoreAll, restoreToAgent, type Passport, type RestoreOutcome } from '@agentpass/core';
-import { bullet, confirm, cyan, dim, heading, line, ok, readPassphrase, warn } from '../ui.js';
+import { bullet, confirm, cyan, dim, heading, line, ok, warn } from '../ui.js';
 
 /**
  * Write the passport into an agent's native configuration.
@@ -12,7 +12,6 @@ export async function restoreCommand(
   agent: string | undefined,
   args: Map<string, string>,
 ): Promise<number> {
-  const passphrase = await readPassphrase();
   const dryRun = args.has('dry-run');
 
   // Always preview first. Overwriting a user's agent configuration without showing them
@@ -22,12 +21,12 @@ export async function restoreCommand(
 
   if (agent) {
     try {
-      previews.push(await restoreToAgent(passport, { agent, passphrase, dryRun: true }));
+      previews.push(await restoreToAgent(passport, { agent, dryRun: true }));
     } catch (error) {
       failures.push({ agent, error: (error as Error).message });
     }
   } else {
-    const bulk = await restoreAll(passport, { passphrase, dryRun: true });
+    const bulk = await restoreAll(passport, { dryRun: true });
     previews.push(...bulk.results);
     failures.push(...bulk.failures);
   }
@@ -86,10 +85,9 @@ export async function restoreCommand(
 
   const applied: RestoreOutcome[] = [];
   if (agent) {
-    applied.push(await restoreToAgent(passport, { agent, passphrase, dryRun: false }));
+    applied.push(await restoreToAgent(passport, { agent, dryRun: false }));
   } else {
     const bulk = await restoreAll(passport, {
-      passphrase,
       dryRun: false,
       agents: previews.map((preview) => preview.agent),
     });

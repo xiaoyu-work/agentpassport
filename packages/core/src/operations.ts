@@ -22,7 +22,6 @@ import { ConflictError, NullRemoteStore } from './remote.js';
 
 export interface ImportOptions {
   agent: string;
-  passphrase: string;
   /** Preview only: compute everything, write nothing. */
   dryRun?: boolean;
 }
@@ -51,7 +50,7 @@ export async function importFromAgent(
   options: ImportOptions,
 ): Promise<ImportOutcome> {
   const adapter = await passport.adapter(options.agent);
-  const dataKey = await passport.store.unlock(options.passphrase);
+  const { dataKey } = await passport.store.unlock();
   const current = await passport.store.load(dataKey);
 
   const context = passport.context({ dryRun: options.dryRun ?? false });
@@ -116,7 +115,6 @@ export async function importFromAgent(
 
 export interface RestoreOptions {
   agent: string;
-  passphrase: string;
   dryRun?: boolean;
 }
 export interface RestoreOutcome {
@@ -140,7 +138,7 @@ export async function restoreToAgent(
   options: RestoreOptions,
 ): Promise<RestoreOutcome> {
   const adapter = await passport.adapter(options.agent);
-  const dataKey = await passport.store.unlock(options.passphrase);
+  const { dataKey } = await passport.store.unlock();
   const profile = await passport.store.load(dataKey);
 
   const provider = passport.memory(profile, dataKey);
@@ -160,7 +158,6 @@ export async function restoreToAgent(
 }
 
 export interface SyncOptions {
-  passphrase: string;
   resolutions?: Record<string, Side>;
   strategy?: Side | 'ask';
   dryRun?: boolean;
@@ -186,7 +183,7 @@ export interface SyncOutcome {
  * than being resolved silently.
  */
 export async function syncProfile(passport: Passport, options: SyncOptions): Promise<SyncOutcome> {
-  const dataKey = await passport.store.unlock(options.passphrase);
+  const { dataKey } = await passport.store.unlock();
   const local = await passport.store.load(dataKey);
   const ancestor = await passport.store.loadBase(dataKey);
   const remoteStore = await passport.remote();
@@ -216,6 +213,10 @@ export async function syncProfile(passport: Passport, options: SyncOptions): Pro
 
   const remoteBundle = await passport.store.decodeEnvelope(dataKey, remote.envelope);
   const remoteProfile = remoteBundle.profile;
+
+  // Fold in any device slots this machine has not seen, so syncing never costs another
+  // computer its ability to unlock silently.
+  if (remote.keyring) await passport.store.mergeKeyring(remote.keyring);
 
   const merged = mergeProfiles(local, remoteProfile, {
     ...(ancestor ? { ancestor } : {}),
@@ -293,10 +294,10 @@ export async function syncProfile(passport: Passport, options: SyncOptions): Pro
 
 /** Compare an agent's on-disk config with the passport, in both directions. */ export async function diffAgent(
   passport: Passport,
-  options: { agent: string; passphrase: string },
+  options: { agent: string },
 ): Promise<{ incoming: ProfileDiff; outgoing: AgentConfigDiff; profile: UniversalProfile }> {
   const adapter = await passport.adapter(options.agent);
-  const dataKey = await passport.store.unlock(options.passphrase);
+  const { dataKey } = await passport.store.unlock();
   const profile = await passport.store.load(dataKey);
   const context = passport.context({ dryRun: true });
 

@@ -26,7 +26,6 @@ function baseEnv(home: string, passportHome: string): NodeJS.ProcessEnv {
     AGENTPASS_HOME: passportHome,
     AGENTPASS_AGENT_HOME: home,
     AGENTPASS_DEVICE: 'test-device',
-    AGENTPASS_PASSPHRASE: 'correct horse battery staple',
     PATH: process.env['PATH'] ?? '',
   };
 }
@@ -47,8 +46,6 @@ export async function readIfExists(path: string): Promise<string | undefined> {
     return undefined;
   }
 }
-
-export const PASSPHRASE = 'correct horse battery staple';
 
 /** A realistic Claude Code setup: prose instructions, settings, and MCP servers. */
 export async function seedClaude(sandbox: Sandbox): Promise<void> {

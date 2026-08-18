@@ -1,14 +1,20 @@
 import { deepStrictEqual, ok, strictEqual, throws } from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  addDeviceSlot,
+  addRecoverySlot,
   createKeyring,
-  keyIdFor,
+  generateRecoveryCode,
+  isRecoveryCodeShaped,
+  mergeKeyrings,
+  normalizeRecoveryCode,
   openEnvelope,
   openText,
-  rewrapKeyring,
+  randomKey,
   seal,
   sealEnvelope,
-  unlockKeyring,
+  unlockWithDeviceKey,
+  unlockWithRecoveryCode,
 } from '@agentpass/crypto';
 import {
   appliesToAgent,
@@ -37,7 +43,7 @@ function memory(overrides: Partial<MemoryRecord> = {}): MemoryRecord {
 }
 
 test('sealed data survives a round trip and rejects tampering', () => {
-  const { keyring, dataKey } = createKeyring('a strong passphrase');
+  const { dataKey } = createKeyring();
   const box = seal(dataKey, 'sensitive profile', 'ctx');
   strictEqual(openText(dataKey, box, 'ctx'), 'sensitive profile');
 
@@ -45,20 +51,62 @@ test('sealed data survives a round trip and rejects tampering', () => {
 
   const tampered = { ...box, ct: Buffer.from('evil').toString('base64') };
   throws(() => openText(dataKey, tampered, 'ctx'), /decryption failed/);
-
-  strictEqual(keyIdFor(unlockKeyring(keyring, 'a strong passphrase')), keyring.keyId);
-  throws(() => unlockKeyring(keyring, 'wrong passphrase'), /decryption failed/);
 });
 
-test('changing a passphrase keeps the same data key', () => {
-  const { keyring, dataKey } = createKeyring('first');
-  const rewrapped = rewrapKeyring(keyring, 'first', 'second');
-  deepStrictEqual(unlockKeyring(rewrapped, 'second'), dataKey);
-  throws(() => unlockKeyring(rewrapped, 'first'), /decryption failed/);
+test('a device slot unlocks with no user input at all', () => {
+  const { keyring, dataKey } = createKeyring();
+  const deviceKey = randomKey();
+  const withDevice = addDeviceSlot(keyring, dataKey, deviceKey, 'MacBook', 'dev-1');
+
+  deepStrictEqual(unlockWithDeviceKey(withDevice, deviceKey, 'dev-1'), dataKey);
+
+  // Another machine's key must not open this slot.
+  throws(() => unlockWithDeviceKey(withDevice, randomKey(), 'dev-1'), /no longer works/);
+  throws(() => unlockWithDeviceKey(withDevice, deviceKey, 'dev-2'), /not set up/);
+});
+
+test('a recovery code unlocks the same key and tolerates sloppy typing', () => {
+  const { keyring, dataKey } = createKeyring();
+  const { keyring: withRecovery, code } = addRecoverySlot(keyring, dataKey);
+
+  deepStrictEqual(unlockWithRecoveryCode(withRecovery, code), dataKey);
+
+  // People retype codes from paper: lowercase, no dashes, and lookalike characters.
+  const sloppy = code.toLowerCase().replace(/-/g, ' ');
+  deepStrictEqual(unlockWithRecoveryCode(withRecovery, sloppy), dataKey);
+  throws(() => unlockWithRecoveryCode(withRecovery, 'ABCD-EFGH-JKMN-PQRS-TVWX'), /not correct/);
+});
+
+test('recovery codes avoid characters people confuse', () => {
+  const code = generateRecoveryCode();
+  ok(isRecoveryCodeShaped(code), `unexpected shape: ${code}`);
+  strictEqual(/[ILOU]/.test(code), false, `ambiguous character in ${code}`);
+  strictEqual(code.split('-').length, 5);
+
+  // A code read back with I/O/L substituted still works.
+  strictEqual(normalizeRecoveryCode('I0LO-U'), '101 0V'.replace(' ', ''));
+});
+
+test('every slot opens the one data key, and slots merge across devices', () => {
+  const { keyring, dataKey } = createKeyring();
+  const laptopKey = randomKey();
+  const deskKey = randomKey();
+
+  const { keyring: withRecovery, code } = addRecoverySlot(keyring, dataKey);
+  const laptop = addDeviceSlot(withRecovery, dataKey, laptopKey, 'Laptop', 'laptop');
+  const desktop = addDeviceSlot(withRecovery, dataKey, deskKey, 'Desktop', 'desktop');
+
+  // Each machine only knows its own slot until they sync.
+  throws(() => unlockWithDeviceKey(laptop, deskKey, 'desktop'), /not set up/);
+
+  const merged = mergeKeyrings(laptop, desktop);
+  deepStrictEqual(unlockWithDeviceKey(merged, laptopKey, 'laptop'), dataKey);
+  deepStrictEqual(unlockWithDeviceKey(merged, deskKey, 'desktop'), dataKey);
+  deepStrictEqual(unlockWithRecoveryCode(merged, code), dataKey);
 });
 
 test('an envelope is bound to its revision, so rollback is detectable', () => {
-  const { keyring, dataKey } = createKeyring('pass');
+  const { keyring, dataKey } = createKeyring();
   const envelope = sealEnvelope(dataKey, {
     userId: 'user_1',
     keyId: keyring.keyId,

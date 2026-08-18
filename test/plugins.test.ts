@@ -6,14 +6,14 @@ import { pathToFileURL } from 'node:url';
 import { Passport, discoverAgents, missingPlugins, usableAgents } from '@agentpass/core';
 import { createEmptyProfile } from '@agentpass/profile';
 import { ADAPTER_API_VERSION, validateAdapter, validatePlugin } from '@agentpass/adapter-sdk';
-import { PASSPHRASE, makeSandbox, seedClaude } from './helpers.ts';
+import { makeSandbox, seedClaude } from './helpers.ts';
 
 async function passportFor(
   name: string,
   overrides: { disableAutoDiscovery?: boolean; plugins?: string[] } = {},
 ) {
   const sandbox = await makeSandbox(name);
-  const passport = new Passport({
+  const passport = await Passport.open({
     home: sandbox.passportHome,
     agentHome: sandbox.home,
     cwd: sandbox.project,
@@ -48,10 +48,9 @@ test('Agent Passport works with no adapter plugins at all', async () => {
   // The core promise still holds: a passport can be created and unlocked.
   await passport.store.initialize({
     session: { userId: 'user_test' },
-    passphrase: PASSPHRASE,
     profile: createEmptyProfile('user_test'),
   });
-  const dataKey = await passport.store.unlock(PASSPHRASE);
+  const dataKey = (await passport.store.unlock()).dataKey;
   ok((await passport.store.load(dataKey)).identity.userId === 'user_test');
 });
 
@@ -96,7 +95,7 @@ test('asking for an agent whose plugin is missing explains how to fix it', async
   } catch (error) {
     unknown = (error as Error).message;
   }
-  ok(unknown.includes('unknown agent'), `expected an unknown-agent error, got: ${unknown}`);
+  ok(/unknown app/i.test(unknown), `expected an unknown-app error, got: ${unknown}`);
 });
 
 test('a third-party plugin is loaded from a file path', async () => {
@@ -127,7 +126,7 @@ test('a third-party plugin is loaded from a file path', async () => {
     'utf8',
   );
 
-  const scoped = new Passport({
+  const scoped = await Passport.open({
     home: sandbox.passportHome,
     agentHome: sandbox.home,
     cwd: sandbox.project,
@@ -163,7 +162,7 @@ test('a plugin built against a different API version is refused', async () => {
     'utf8',
   );
 
-  const passport = new Passport({
+  const passport = await Passport.open({
     home: sandbox.passportHome,
     agentHome: sandbox.home,
     cwd: sandbox.project,
@@ -185,7 +184,7 @@ test('a broken plugin does not break the others', async () => {
   const file = join(dir, 'index.js');
   await writeFile(file, 'this is not valid javascript {{{', 'utf8');
 
-  const passport = new Passport({
+  const passport = await Passport.open({
     home: sandbox.passportHome,
     agentHome: sandbox.home,
     cwd: sandbox.project,

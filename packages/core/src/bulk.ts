@@ -8,7 +8,6 @@ import {
 } from './operations.js';
 
 export interface BulkOptions {
-  passphrase: string;
   dryRun?: boolean;
   /** Restrict to these agents. Defaults to every agent detected on the machine. */
   agents?: string[];
@@ -51,7 +50,6 @@ export async function importAll(
       results.push(
         await importFromAgent(passport, {
           agent,
-          passphrase: options.passphrase,
           dryRun: options.dryRun ?? false,
         }),
       );
@@ -82,7 +80,6 @@ export async function restoreAll(
       results.push(
         await restoreToAgent(passport, {
           agent,
-          passphrase: options.passphrase,
           dryRun: options.dryRun ?? false,
         }),
       );

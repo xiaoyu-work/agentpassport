@@ -1,6 +1,6 @@
 import { diffAgent, discoverAgents, usableAgents, type Passport } from '@agentpass/core';
 import { renderDiffLines } from '@agentpass/sync';
-import { bullet, dim, heading, line, ok, readPassphrase, warn } from '../ui.js';
+import { bullet, dim, heading, line, ok, warn } from '../ui.js';
 
 /**
  * Show what differs between the local agents and the passport, in both directions.
@@ -9,8 +9,6 @@ import { bullet, dim, heading, line, ok, readPassphrase, warn } from '../ui.js';
  * first-class command rather than a flag on `sync`.
  */
 export async function diffCommand(passport: Passport, agent: string | undefined): Promise<number> {
-  const passphrase = await readPassphrase();
-
   const agents = agent ? [agent] : usableAgents(await discoverAgents(passport)).map((a) => a.id);
 
   if (agents.length === 0) {
@@ -23,7 +21,7 @@ export async function diffCommand(passport: Passport, agent: string | undefined)
     const adapter = await passport.adapter(id);
     let result: Awaited<ReturnType<typeof diffAgent>>;
     try {
-      result = await diffAgent(passport, { agent: id, passphrase });
+      result = await diffAgent(passport, { agent: id });
     } catch (error) {
       warn(`${id}: ${(error as Error).message}`);
       continue;

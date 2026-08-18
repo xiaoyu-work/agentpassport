@@ -1,6 +1,6 @@
 import { syncProfile, type Passport } from '@agentpass/core';
 import { renderDiffLines, type Side } from '@agentpass/sync';
-import { ask, bullet, dim, heading, line, ok, readPassphrase, warn } from '../ui.js';
+import { ask, bullet, dim, heading, line, ok, warn } from '../ui.js';
 
 /**
  * Reconcile this machine with the cloud.
@@ -10,10 +10,9 @@ import { ask, bullet, dim, heading, line, ok, readPassphrase, warn } from '../ui
  * a change they would have no way to notice.
  */
 export async function syncCommand(passport: Passport, args: Map<string, string>): Promise<number> {
-  const passphrase = args.get('passphrase-cached') ?? (await readPassphrase());
   const dryRun = args.has('dry-run');
 
-  let outcome = await syncProfile(passport, { passphrase, dryRun, strategy: 'ask' });
+  let outcome = await syncProfile(passport, { dryRun, strategy: 'ask' });
 
   if (outcome.conflicts.length > 0) {
     heading('Conflicts');
@@ -30,7 +29,7 @@ export async function syncCommand(passport: Passport, args: Map<string, string>)
       line('');
     }
 
-    outcome = await syncProfile(passport, { passphrase, dryRun, resolutions, strategy: 'ask' });
+    outcome = await syncProfile(passport, { dryRun, resolutions, strategy: 'ask' });
   }
 
   if (!outcome.remoteConfigured) {

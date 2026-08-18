@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { Passport } from '@agentpass/core';
-import { login, logout } from './commands/auth.js';
+import { setUp, signOut } from './commands/auth.js';
 import { scan, status } from './commands/status.js';
 import { importCommand } from './commands/import.js';
 import { restoreCommand } from './commands/restore.js';
@@ -9,48 +9,46 @@ import { diffCommand } from './commands/diff.js';
 import { syncCommand } from './commands/sync.js';
 import { memoryCommand } from './commands/memory.js';
 import { pluginsCommand } from './commands/plugins.js';
-import { bold, dim, fail, line } from './ui.js';
+import { bold, cyan, dim, fail, line, warn } from './ui.js';
 
-const HELP = `${bold('agentpass')} — Sign in to your AI.
-
-Your identity, memory, and configuration follow you across every AI agent.
+const HELP = `${bold('agentpass')} — your AI identity, on every machine and every agent.
 
 ${bold('Getting started')}
-  agentpass scan                 See which agents are installed on this machine
-  agentpass login                Create an encrypted passport
-  agentpass import               Import from every agent found (no arguments needed)
-  agentpass restore              Write your identity into every agent
+  agentpass setup                First computer: creates your passport
+  agentpass setup --code <code>  Another computer: joins with your recovery code
+  agentpass import               Read every AI tool found here
+  agentpass restore              Write your identity into every AI tool
 
 ${bold('Commands')}
-  login [--email <e>] [--name <n>] [--server <url>]
-  logout
-  status                         Passport, memory, and agent overview
-  scan                           List detected agents and their config files
-  plugins                        Which agent adapters are installed
-  import [agent] [--dry-run]     Agent config -> passport
-  restore [agent] [--dry-run]    Passport -> agent config
-  diff [agent]                   Show both directions without changing anything
+  setup [--name <n>] [--email <e>] [--server <url>] [--code <recovery>]
+  status                         What is stored, and which tools see it
+  scan                           AI tools detected on this machine
+  plugins                        Which tool adapters are installed
+  import [tool] [--dry-run]      Tool config -> passport
+  restore [tool] [--dry-run]     Passport -> tool config
+  diff [tool]                    Show both directions, change nothing
   sync [--dry-run]               Reconcile this machine with the cloud
   memory list [--agent <id>]     One shared store; see who sees what
   memory search <query>
-  memory share <id>              Make a memory visible to every agent
-  memory pin <id> <agent>...     Limit a memory to specific agents
-  memory approve <id>            Accept a memory held for review
-  memory forget <id>             Delete everywhere, from every agent
+  memory share <id>              Make a memory visible to every tool
+  memory pin <id> <tool>...      Limit a memory to specific tools
+  memory forget <id>             Delete everywhere, from every tool
+  logout                         Remove the passport from this computer
 
-${bold('Agent plugins')}
-  Adapters are optional. Install only the agents you use:
-    npm install @agentpass/adapter-claude
-    npm install @agentpass/adapter-openclaw
-    npm install @agentpass/adapter-codex
-    npm install @agentpass/adapter-cursor
+${bold('Unlocking')}
+  No passphrase. Your key lives in this machine's credential store, so
+  every command just works. A recovery code, shown once at setup, is what
+  adds another computer.
+
+${bold('Tool support is optional')}
+  npm install @agentpass/adapter-claude     # or -openclaw, -codex, -cursor
   Anything named agentpass-adapter-* is discovered automatically.
 
 ${bold('Environment')}
   AGENTPASS_HOME                 Passport directory (default ~/.agentpass)
-  AGENTPASS_PASSPHRASE           Non-interactive passphrase
+  AGENTPASS_AGENT_HOME           Home directory tools are read from
   AGENTPASS_SERVER               Sync server URL
-  MEM0_API_KEY                   Use Mem0 instead of local memory storage
+  MEM0_API_KEY                   Use Mem0 instead of the built-in memory store
 `;
 
 async function main(argv: string[]): Promise<number> {
@@ -59,6 +57,7 @@ async function main(argv: string[]): Promise<number> {
     allowPositionals: true,
     strict: false,
     options: {
+      code: { type: 'string' },
       help: { type: 'boolean', short: 'h' },
       version: { type: 'boolean', short: 'v' },
       'dry-run': { type: 'boolean' },
@@ -78,9 +77,9 @@ async function main(argv: string[]): Promise<number> {
     line('0.1.0');
     return 0;
   }
-  if (!command || values['help'] || command === 'help') {
+  if (values['help'] || command === 'help') {
     line(HELP);
-    return command && command !== 'help' ? 1 : 0;
+    return 0;
   }
 
   const args = new Map<string, string>();
@@ -89,16 +88,34 @@ async function main(argv: string[]): Promise<number> {
     args.set(key, value === true ? '' : String(value));
   }
 
-  const passport = new Passport({
+  const passport = await Passport.open({
     ...(args.get('cwd') ? { cwd: args.get('cwd') as string } : {}),
   });
 
+  // Bare `agentpass` should advance the user, not lecture them. Before setup the next step
+  // is setup; after it, the useful thing is knowing what is out of sync.
+  if (!command) {
+    if (!(await passport.store.exists())) {
+      line(HELP);
+      line('');
+      warn('This computer is not set up yet.');
+      line(`Run ${cyan('agentpass setup')} to begin.`);
+      return 1;
+    }
+    return status(passport);
+  }
+
   switch (command) {
+    case 'setup':
     case 'login':
     case 'signup':
-      return login(passport, args);
+    case 'init':
+      return setUp(passport, args);
+    case 'join':
+      return setUp(passport, args);
     case 'logout':
-      return logout(passport);
+    case 'signout':
+      return signOut(passport);
     case 'status':
       return status(passport);
     case 'scan':

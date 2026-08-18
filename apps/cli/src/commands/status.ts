@@ -1,17 +1,6 @@
 import { discoverAgents, missingPlugins, usableAgents, type Passport } from '@agentpass/core';
 import { summarizeSharing } from '@agentpass/memory';
-import {
-  bullet,
-  cyan,
-  dim,
-  formatBytes,
-  heading,
-  line,
-  ok,
-  readPassphrase,
-  warn,
-  yellow,
-} from '../ui.js';
+import { bullet, cyan, dim, formatBytes, heading, line, ok, warn, yellow } from '../ui.js';
 
 /**
  * Show what is installed on this machine.
@@ -73,14 +62,7 @@ export async function status(passport: Passport): Promise<number> {
   bullet(`Cloud     ${session.serverUrl ?? dim('local only')}`);
   bullet(`Vault     ${passport.store.path}`);
 
-  let passphrase: string;
-  try {
-    passphrase = await readPassphrase();
-  } catch {
-    return 1;
-  }
-
-  const dataKey = await passport.store.unlock(passphrase);
+  const { dataKey } = await passport.store.unlock();
   const profile = await passport.store.load(dataKey);
 
   heading('Profile');

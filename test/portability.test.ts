@@ -4,11 +4,11 @@ import { join } from 'node:path';
 import { Passport, discoverAgents, importFromAgent, restoreToAgent } from '@agentpass/core';
 import { createEmptyProfile } from '@agentpass/profile';
 import { selectForAgent } from '@agentpass/memory';
-import { PASSPHRASE, makeSandbox, read, readIfExists, seedClaude } from './helpers.ts';
+import { makeSandbox, read, readIfExists, seedClaude } from './helpers.ts';
 
 async function signedInPassport(name: string) {
   const sandbox = await makeSandbox(name);
-  const passport = new Passport({
+  const passport = await Passport.open({
     home: sandbox.passportHome,
     agentHome: sandbox.home,
     cwd: sandbox.project,
@@ -17,7 +17,6 @@ async function signedInPassport(name: string) {
   });
   await passport.store.initialize({
     session: { userId: 'user_test' },
-    passphrase: PASSPHRASE,
     profile: createEmptyProfile('user_test'),
   });
   return { sandbox, passport };
@@ -49,8 +48,8 @@ test('imports Claude configuration into the universal profile', async () => {
   const { sandbox, passport } = await signedInPassport('import');
   await seedClaude(sandbox);
 
-  const outcome = await importFromAgent(passport, { agent: 'claude', passphrase: PASSPHRASE });
-  const dataKey = await passport.store.unlock(PASSPHRASE);
+  const outcome = await importFromAgent(passport, { agent: 'claude' });
+  const dataKey = (await passport.store.unlock()).dataKey;
   const profile = await passport.store.load(dataKey);
 
   strictEqual(profile.models.coding, 'anthropic/claude-sonnet', 'bare "sonnet" is canonicalized');
@@ -66,8 +65,8 @@ test('an inline API key becomes a reference and never enters the profile', async
   const { sandbox, passport } = await signedInPassport('secrets');
   await seedClaude(sandbox);
 
-  await importFromAgent(passport, { agent: 'claude', passphrase: PASSPHRASE });
-  const dataKey = await passport.store.unlock(PASSPHRASE);
+  await importFromAgent(passport, { agent: 'claude' });
+  const dataKey = (await passport.store.unlock()).dataKey;
   const profile = await passport.store.load(dataKey);
 
   const github = profile.mcp.find((server) => server.name === 'github');
@@ -95,8 +94,8 @@ test('restores a Claude-derived identity into OpenClaw', async () => {
   const { sandbox, passport } = await signedInPassport('restore');
   await seedClaude(sandbox);
 
-  await importFromAgent(passport, { agent: 'claude', passphrase: PASSPHRASE });
-  const outcome = await restoreToAgent(passport, { agent: 'openclaw', passphrase: PASSPHRASE });
+  await importFromAgent(passport, { agent: 'claude' });
+  const outcome = await restoreToAgent(passport, { agent: 'openclaw' });
 
   ok(outcome.written.length > 0, 'restore should write files');
 
@@ -122,9 +121,9 @@ test('one memory store serves every agent', async () => {
   const { sandbox, passport } = await signedInPassport('shared-memory');
   await seedClaude(sandbox);
 
-  await importFromAgent(passport, { agent: 'claude', passphrase: PASSPHRASE });
+  await importFromAgent(passport, { agent: 'claude' });
 
-  const dataKey = await passport.store.unlock(PASSPHRASE);
+  const dataKey = (await passport.store.unlock()).dataKey;
   const profile = await passport.store.load(dataKey);
   const provider = passport.memory(profile, dataKey);
   const all = await provider.list('user_test');
@@ -152,20 +151,20 @@ test('one memory store serves every agent', async () => {
 test('restore is idempotent and preserves user-authored content', async () => {
   const { sandbox, passport } = await signedInPassport('idempotent');
   await seedClaude(sandbox);
-  await importFromAgent(passport, { agent: 'claude', passphrase: PASSPHRASE });
+  await importFromAgent(passport, { agent: 'claude' });
 
-  await restoreToAgent(passport, { agent: 'openclaw', passphrase: PASSPHRASE });
+  await restoreToAgent(passport, { agent: 'openclaw' });
   const agentsPath = join(sandbox.home, '.openclaw', 'workspace', 'AGENTS.md');
   const first = await read(agentsPath);
 
-  await restoreToAgent(passport, { agent: 'openclaw', passphrase: PASSPHRASE });
+  await restoreToAgent(passport, { agent: 'openclaw' });
   const second = await read(agentsPath);
   strictEqual(first, second, 'restoring twice must not change the file');
 
   // Content the user wrote themselves must survive a restore.
   const { writeFile } = await import('node:fs/promises');
   await writeFile(agentsPath, `# My own notes\n\nDo not delete me.\n\n${second}`, 'utf8');
-  await restoreToAgent(passport, { agent: 'openclaw', passphrase: PASSPHRASE });
+  await restoreToAgent(passport, { agent: 'openclaw' });
   const third = await read(agentsPath);
   ok(third.includes('Do not delete me.'), 'authored content outside the block is preserved');
 });
@@ -174,7 +173,7 @@ test('an unconfigured agent is skipped rather than failing the run', async () =>
   const { passport } = await signedInPassport('missing');
   let message = '';
   try {
-    await importFromAgent(passport, { agent: 'codex', passphrase: PASSPHRASE });
+    await importFromAgent(passport, { agent: 'codex' });
   } catch (error) {
     message = (error as Error).message;
   }
@@ -184,11 +183,10 @@ test('an unconfigured agent is skipped rather than failing the run', async () =>
 test('dry run writes nothing', async () => {
   const { sandbox, passport } = await signedInPassport('dryrun');
   await seedClaude(sandbox);
-  await importFromAgent(passport, { agent: 'claude', passphrase: PASSPHRASE });
+  await importFromAgent(passport, { agent: 'claude' });
 
   const outcome = await restoreToAgent(passport, {
     agent: 'openclaw',
-    passphrase: PASSPHRASE,
     dryRun: true,
   });
 

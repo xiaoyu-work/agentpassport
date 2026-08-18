@@ -1,82 +1,132 @@
 import { randomUUID } from 'node:crypto';
 import { createEmptyProfile } from '@agentpass/profile';
+import { formatRecoveryCode, isRecoveryCodeShaped } from '@agentpass/crypto';
 import type { Passport, RemoteProfile } from '@agentpass/core';
-import { ask, heading, line, ok, readPassphrase, dim } from '../ui.js';
+import { ask, bold, cyan, dim, heading, line, ok, warn } from '../ui.js';
 
 /**
- * Create a passport on this machine.
+ * Set up this computer.
  *
- * There is no account required to be useful: a passport works entirely locally, and a
- * server URL can be added later. Demanding a signup before the tool does anything would
- * make the first run a cost rather than a payoff.
+ * There is deliberately nothing to invent here: no passphrase, no account, no decisions.
+ * The vault is protected by this machine's credential store, and the one thing the user is
+ * asked to keep — a recovery code — is generated for them and shown once.
  */
-export async function login(passport: Passport, args: Map<string, string>): Promise<number> {
+export async function setUp(passport: Passport, args: Map<string, string>): Promise<number> {
   if (await passport.store.exists()) {
     const session = await passport.store.session();
-    line(`Already signed in as ${session.userId} on ${session.device}.`);
-    line(dim('Run "agentpass logout" to sign out.'));
+    line(`This computer is already set up as ${bold(session.userId)}.`);
+    line(dim('Run "agentpass" to open Agent Passport.'));
     return 0;
   }
 
-  heading('Create your Agent Passport');
-  const email = args.get('email') ?? (await ask('Email (optional): '));
-  const displayName = args.get('name') ?? (await ask('Display name (optional): '));
+  const serverUrl = args.get('server') ?? process.env['AGENTPASS_SERVER'];
+  const token = args.get('token') ?? process.env['AGENTPASS_TOKEN'] ?? 'local-dev-token';
+
+  // Joining an existing account is the common case for a second computer, so check before
+  // creating a new identity that could never read the first one's data.
+  const code = args.get('code');
+  if (code && serverUrl) {
+    const userId = args.get('user-id');
+    if (!userId) {
+      warn('Tell me which account to join with --user-id.');
+      return 1;
+    }
+    return joinExisting(passport, { serverUrl, token, userId, code });
+  }
+
+  const email = args.get('email');
+  const displayName = args.get('name');
   const userId =
     args.get('user-id') ?? (email ? emailToUserId(email) : `user_${randomUUID().slice(0, 12)}`);
-
-  line('');
-  line(dim('Your profile is encrypted with this passphrase before it touches disk or cloud.'));
-  line(dim('It is never uploaded, and it cannot be recovered if you lose it.'));
-  const passphrase = await readPassphrase('Choose a passphrase: ');
-  if (passphrase.length < 8) {
-    line('Passphrase must be at least 8 characters.');
-    return 1;
-  }
-  const confirmation = await readPassphrase('Confirm passphrase: ');
-  if (passphrase !== confirmation) {
-    line('Passphrases did not match.');
-    return 1;
-  }
 
   const profile = createEmptyProfile(userId);
   if (displayName) profile.identity.displayName = displayName;
   if (email) profile.identity.email = email;
 
-  const serverUrl = args.get('server') ?? process.env['AGENTPASS_SERVER'];
-  const token = args.get('token') ?? process.env['AGENTPASS_TOKEN'] ?? 'local-dev-token';
-  const session = {
-    userId,
-    ...(email ? { email } : {}),
-    ...(serverUrl ? { serverUrl, token } : {}),
-  };
+  const result = await passport.store.initialize({
+    session: {
+      userId,
+      ...(email ? { email } : {}),
+      ...(serverUrl ? { serverUrl, token } : {}),
+    },
+    profile,
+  });
 
-  // Joining from a second device is the normal case, not the exception: check whether this
-  // account already exists before minting a new identity that could never read the old one.
-  if (serverUrl) {
-    const existing = await fetchExisting(serverUrl, token, userId);
-    if (existing) {
-      await passport.store.adopt({
-        session,
-        passphrase,
-        keyring: existing.keyring,
-        profile: existing.envelope,
-      });
-      line('');
-      ok(`Signed in as ${userId} on ${passport.device}`);
-      line(dim(`Joined an existing passport at revision ${existing.revision}.`));
-      line('');
-      line(`Next: ${dim('agentpass restore')}   (writes your identity into every agent here)`);
-      return 0;
-    }
+  heading('You are set up.');
+  ok(`This computer unlocks automatically using your ${result.keyStore}.`);
+  line(dim('You do not need a password.'));
+
+  showRecoveryCode(result.recoveryCode);
+
+  line('');
+  line(`Next: ${cyan('agentpass')} to open Agent Passport.`);
+  return 0;
+}
+
+async function joinExisting(
+  passport: Passport,
+  input: { serverUrl: string; token: string; userId: string; code: string },
+): Promise<number> {
+  if (!isRecoveryCodeShaped(input.code)) {
+    warn('That does not look like a recovery code. It looks like ABCD-EFGH-JKMN-PQRS-TVWX.');
+    return 1;
   }
 
-  await passport.store.initialize({ session, passphrase, profile });
+  const remote = await fetchExisting(input.serverUrl, input.token, input.userId);
+  if (!remote) {
+    warn('Could not find that account.');
+    return 1;
+  }
 
+  const result = await passport.store.adopt({
+    session: { userId: input.userId, serverUrl: input.serverUrl, token: input.token },
+    recoveryCode: input.code,
+    keyring: remote.keyring,
+    profile: remote.envelope,
+  });
+
+  heading('Welcome back.');
+  ok(`This computer is now part of your account.`);
+  line(dim(`It will unlock automatically from now on, using your ${result.keyStore}.`));
   line('');
-  ok(`Signed in as ${userId}`);
-  line(dim(`Passport stored at ${passport.store.path}`));
+  line(`Next: ${cyan('agentpass')} to set up your AI apps here.`);
+  return 0;
+}
+
+export function showRecoveryCode(code: string): void {
+  const formatted = formatRecoveryCode(code);
+  const width = formatted.length + 8;
+
+  heading('Save this recovery code');
   line('');
-  line(`Next: ${dim('agentpass import')}   (scans every agent on this machine)`);
+  line(`  ${'─'.repeat(width)}`);
+  line(`     ${bold(cyan(formatted))}`);
+  line(`  ${'─'.repeat(width)}`);
+  line('');
+  line('  This is the only way to get your identity onto another computer,');
+  line('  or back if this one is lost. Write it down or save it somewhere safe.');
+  line('');
+  line(dim('  It is never uploaded, and nobody can recover it for you.'));
+}
+
+export async function signOut(passport: Passport): Promise<number> {
+  if (!(await passport.store.exists())) {
+    line('Nothing to sign out of on this computer.');
+    return 0;
+  }
+
+  const answer = await ask(
+    'Remove Agent Passport from this computer? Your AI apps keep their settings. [y/N] ',
+    'n',
+  );
+  if (!/^y(es)?$/i.test(answer) && process.env['AGENTPASS_YES'] !== '1') {
+    line('Cancelled.');
+    return 1;
+  }
+
+  await passport.store.destroy();
+  ok('Removed from this computer.');
+  line(dim('Your AI apps were left exactly as they are.'));
   return 0;
 }
 
@@ -94,20 +144,8 @@ async function fetchExisting(
     const remote = (await response.json()) as RemoteProfile;
     return remote.keyring ? remote : undefined;
   } catch {
-    // An unreachable server must not block creating a local passport.
     return undefined;
   }
-}
-
-export async function logout(passport: Passport): Promise<number> {
-  if (!(await passport.store.exists())) {
-    line('Not signed in.');
-    return 0;
-  }
-  await passport.store.destroy();
-  ok('Signed out. The local passport was removed.');
-  line(dim('Agent configuration files were left untouched.'));
-  return 0;
 }
 
 function emailToUserId(email: string): string {

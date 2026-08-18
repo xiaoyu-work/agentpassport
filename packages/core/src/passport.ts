@@ -4,7 +4,7 @@ import { Mem0Provider } from '@agentpass/mem0';
 import type { UniversalProfile } from '@agentpass/profile';
 import { SecretRegistry } from '@agentpass/secrets';
 import { catalogEntry } from './catalog.js';
-import { agentpassHome, deviceName } from './paths.js';
+import { agentpassHome, deviceId as resolveDeviceId, deviceName } from './paths.js';
 import { loadPlugins, type PluginLoadResult } from './plugins.js';
 import { ProfileStore } from './store.js';
 import { VaultMemoryProvider } from './vault-memory.js';
@@ -15,6 +15,8 @@ export interface PassportOptions {
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   device?: string;
+  /** Stable id for this machine; resolved and persisted automatically when omitted. */
+  deviceId?: string;
   /** Home directory agents are read from. Separated from `home` so tests can redirect it. */
   agentHome?: string;
   /** Additional plugin specifiers, mainly for tests. */
@@ -26,9 +28,9 @@ export interface PassportOptions {
 /**
  * Wires the pieces together and owns the choices a user should not have to make.
  *
- * Adapters are plugins resolved at runtime rather than compiled in. Someone who only uses
- * Claude Code should not have to carry a Cursor adapter, and supporting a new agent should
- * not require a new release of this package — so nothing here imports a specific agent.
+ * Adapters are plugins resolved at runtime rather than compiled in, and the vault unlocks
+ * from this machine's credential store rather than from something typed. Both are the same
+ * idea: the person using this should have to know as little as possible for it to work.
  */
 export class Passport {
   readonly store: ProfileStore;
@@ -36,6 +38,7 @@ export class Passport {
   readonly env: NodeJS.ProcessEnv;
   readonly cwd: string;
   readonly device: string;
+  readonly deviceId: string;
   readonly agentHome: string;
   readonly home: string;
 
@@ -43,10 +46,11 @@ export class Passport {
   private readonly extraPlugins: string[];
   private readonly noDiscovery: boolean;
 
-  constructor(options: PassportOptions = {}) {
+  private constructor(options: PassportOptions, deviceId: string) {
     this.env = options.env ?? process.env;
     this.cwd = options.cwd ?? process.cwd();
     this.device = options.device ?? deviceName(this.env);
+    this.deviceId = deviceId;
     this.home = options.home ?? agentpassHome(this.env);
     this.agentHome =
       options.agentHome ??
@@ -56,8 +60,25 @@ export class Passport {
       '';
     this.extraPlugins = options.plugins ?? [];
     this.noDiscovery = options.disableAutoDiscovery ?? false;
-    this.store = new ProfileStore({ home: this.home, device: this.device });
+    this.store = new ProfileStore({
+      home: this.home,
+      device: this.device,
+      deviceId: this.deviceId,
+    });
     this.secrets = SecretRegistry.default(this.env);
+  }
+
+  /**
+   * Create a passport for this machine.
+   *
+   * Asynchronous because the device identifier is persisted on first use; key slots are
+   * addressed by it, so it has to be settled before the store exists.
+   */
+  static async open(options: PassportOptions = {}): Promise<Passport> {
+    const env = options.env ?? process.env;
+    const home = options.home ?? agentpassHome(env);
+    const id = options.deviceId ?? (await resolveDeviceId(home, env));
+    return new Passport(options, id);
   }
 
   /** Load plugins once per process; every caller shares the same result. */
@@ -93,16 +114,14 @@ export class Passport {
     // The first is a one-command fix; the second is a typo.
     const known = catalogEntry(id);
     if (known) {
-      throw new Error(
-        `the ${known.displayName} plugin is not installed. Run: npm install ${known.package}`,
-      );
+      throw new Error(`Support for ${known.displayName} is not installed yet (${known.package}).`);
     }
 
     const available = registry.ids();
     throw new Error(
       available.length > 0
-        ? `unknown agent "${id}". Installed plugins: ${available.join(', ')}`
-        : `unknown agent "${id}". No adapter plugins are installed.`,
+        ? `Unknown app "${id}". Available: ${available.join(', ')}`
+        : `Unknown app "${id}". No app support is installed.`,
     );
   }
 
@@ -110,12 +129,8 @@ export class Passport {
    * One memory provider for the whole passport, shared by every agent.
    *
    * There is deliberately no per-agent provider: a single store is what makes "delete this
-   * about me" mean deleted everywhere, rather than deleted in the one agent that happened
-   * to be open at the time.
-   *
-   * Mem0 takes over when the user has an account, because it adds retrieval and dedup that
-   * are not worth rebuilding. Without one, memories live in the encrypted vault and sync
-   * with the profile, so portability never depends on a third-party signup.
+   * about me" mean deleted everywhere, rather than deleted in the one app that happened to
+   * be open at the time.
    */
   memory(profile: UniversalProfile | undefined, dataKey: Buffer): MemoryProvider {
     const apiKey = this.env['MEM0_API_KEY'];
@@ -136,7 +151,7 @@ export class Passport {
     return new HttpRemoteStore(session.serverUrl, session.token);
   }
 
-  /** Agents with a plugin installed that also appear to be configured on this machine. */
+  /** Agents with support installed that also appear to be configured on this machine. */
   async detectAgents(): Promise<AgentAdapter[]> {
     const context = this.context();
     const registry = await this.registry();

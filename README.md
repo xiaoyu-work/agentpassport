@@ -8,6 +8,11 @@ are again.
 One account carries your identity, memory, preferences, skills, and MCP configuration
 across Claude Code, OpenClaw, Codex, and Cursor.
 
+> [!NOTE]
+> Built for developers who run more than one coding agent. Those are the tools that keep
+> their configuration in local files, which is the condition that makes any of this
+> possible — a hosted assistant with server-side memory has nothing on disk to read.
+
 > [!WARNING]
 > Developer preview. The profile format may change before 1.0.
 
@@ -60,13 +65,43 @@ Then:
 
 ```console
 agentpass scan       # what's installed on this machine
-agentpass login      # create an encrypted passport
+agentpass setup      # create your passport — asks nothing, invents nothing
 agentpass import     # read every agent found — no arguments needed
 agentpass restore    # write your identity into every agent
 ```
 
 Nothing is guessed about your setup. Agent paths are fixed and well known, so discovery is
 automatic.
+
+`agentpass` on its own shows what is stored and what each agent can see.
+
+### There is no passphrase
+
+`setup` asks you for nothing. The vault key is generated for you and kept in this machine's
+credential store — macOS Keychain, Windows account protection, or the Linux system keyring —
+so every command afterwards just runs. Nothing to type, nothing to remember, and it works
+unattended in scripts and CI.
+
+A passphrase would have been the easy thing to build and the wrong thing to ship: it puts a
+prompt in front of every command and makes losing one string mean losing everything.
+
+Setup prints a **recovery code** once:
+
+```
+  ────────────────────────────────
+     CXXA-T80X-936K-K9ST-38Q3
+  ────────────────────────────────
+```
+
+That code is how a second computer joins your account. Type it once there and that machine
+registers its own key, so it never asks again:
+
+```console
+agentpass setup --user-id <your-id> --server <url> --code CXXA-T80X-936K-K9ST-38Q3
+```
+
+The code is never uploaded and cannot be reissued for you. If you want a passphrase as well,
+you can add one; the vault supports several independent ways to unlock the same key.
 
 ### Try it without touching your real config
 
@@ -248,35 +283,48 @@ Supported schemes: `op://` (1Password CLI), `infisical://` (Infisical CLI), `env
 ## Encryption
 
 Your profile is encrypted on your device before it touches disk or network, with
-AES-256-GCM under a scrypt-derived key.
+AES-256-GCM.
 
 The design assumes the server is eventually compromised. It stores an opaque blob and the
 metadata needed to order writes — a user id, a revision, a timestamp — and nothing else. A
 full database breach yields ciphertext.
 
-Envelope encryption makes multiple devices work: a random data key protects the profile,
-and your passphrase only protects the data key. The wrapped key syncs with the profile, so
-a second device with the same passphrase can join. The server can never unwrap it.
+Envelope encryption is what makes this practical. A random **data key** protects the
+profile, and that key is then wrapped several independent ways — one slot per unlock method:
+
+| Slot       | Wrapped by                        | Used for                       |
+| ---------- | --------------------------------- | ------------------------------ |
+| Device     | A key in your OS credential store | Every command, silently        |
+| Recovery   | Your recovery code                | Adding a computer, or recovery |
+| Passphrase | A passphrase, if you add one      | Optional                       |
+
+Every slot opens the same data key, so daily use costs nothing and a second machine only
+needs the code once. The wrapped key syncs with the profile and is useless without one of
+those secrets, none of which are ever uploaded.
+
+Device slots merge on sync rather than overwrite, so two computers never knock each other
+out of the account.
 
 > [!IMPORTANT]
-> The passphrase is never uploaded and cannot be recovered. Lose it and the profile is
-> unreadable — that is the point.
+> The recovery code is never uploaded and nobody can reissue it. Lose it along with your
+> registered machines and the profile is unreadable — that is the point.
 
 ## Commands
 
-| Command                                              | Purpose                                            |
-| ---------------------------------------------------- | -------------------------------------------------- |
-| `agentpass scan`                                     | List detected agents and their config files        |
-| `agentpass plugins`                                  | Which adapters are installed, missing, or broken   |
-| `agentpass login`                                    | Create or join a passport                          |
-| `agentpass import [agent]`                           | Agent config → passport (all agents by default)    |
-| `agentpass restore [agent]`                          | Passport → agent config (all agents by default)    |
-| `agentpass diff [agent]`                             | Show both directions, change nothing               |
-| `agentpass sync`                                     | Reconcile this machine with the cloud              |
-| `agentpass status`                                   | Passport, memory audience, and secret reachability |
-| `agentpass memory list`                              | Inspect the shared store                           |
-| `agentpass memory share \| pin \| approve \| forget` | Control who sees what                              |
-| `agentpass logout`                                   | Remove the local passport                          |
+| Command                                   | Purpose                                            |
+| ----------------------------------------- | -------------------------------------------------- |
+| `agentpass`                               | What is stored and which agents can see it         |
+| `agentpass scan`                          | List detected agents and their config files        |
+| `agentpass plugins`                       | Which adapters are installed, missing, or broken   |
+| `agentpass setup`                         | Create a passport, or join one with `--code`       |
+| `agentpass import [agent]`                | Agent config → passport (all agents by default)    |
+| `agentpass restore [agent]`               | Passport → agent config (all agents by default)    |
+| `agentpass diff [agent]`                  | Show both directions, change nothing               |
+| `agentpass sync`                          | Reconcile this machine with the cloud              |
+| `agentpass status`                        | Passport, memory audience, and secret reachability |
+| `agentpass memory list`                   | Inspect the shared store                           |
+| `agentpass memory share \| pin \| forget` | Control who sees what                              |
+| `agentpass logout`                        | Remove the passport from this computer             |
 
 `import` and `restore` accept `--dry-run`. `restore` always previews and asks before
 writing.
@@ -392,7 +440,6 @@ Postgres and the token for a real identity provider; the contract does not chang
 | ---------------------- | ------------------------------------------- |
 | `AGENTPASS_HOME`       | Passport directory (default `~/.agentpass`) |
 | `AGENTPASS_AGENT_HOME` | Home directory agents are read from         |
-| `AGENTPASS_PASSPHRASE` | Non-interactive passphrase for CI           |
 | `AGENTPASS_SERVER`     | Sync server URL                             |
 | `AGENTPASS_DEVICE`     | Device name recorded in change metadata     |
 | `MEM0_API_KEY`         | Enable the Mem0 memory backend              |

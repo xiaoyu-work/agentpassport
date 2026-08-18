@@ -6,7 +6,7 @@ import {
   summarizeSharing,
   type MemoryRecord,
 } from '@agentpass/memory';
-import { bullet, cyan, dim, heading, line, ok, readPassphrase, warn, yellow } from '../ui.js';
+import { bullet, cyan, dim, heading, line, ok, warn, yellow } from '../ui.js';
 
 /**
  * Inspect and control the shared memory store.
@@ -20,8 +20,7 @@ export async function memoryCommand(
   rest: string[],
   args: Map<string, string>,
 ): Promise<number> {
-  const passphrase = await readPassphrase();
-  const dataKey = await passport.store.unlock(passphrase);
+  const { dataKey } = await passport.store.unlock();
   const profile = await passport.store.load(dataKey);
   const provider = passport.memory(profile, dataKey);
   const userId = profile.identity.userId;
