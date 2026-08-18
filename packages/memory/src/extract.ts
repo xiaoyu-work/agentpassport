@@ -137,16 +137,34 @@ function candidateLines(markdown: string): string[] {
     if (line.startsWith('#') || line.startsWith('|') || line.startsWith('>')) continue;
     if (/^[-*_]{3,}$/.test(line)) continue;
 
-    const stripped = line
-      .replace(/^[-*+]\s+/, '')
-      .replace(/^\d+[.)]\s+/, '')
-      .replace(/^\[[ xX]\]\s+/, '')
-      .replace(/[*_`]/g, '')
-      .trim();
+    const stripped = stripInlineMarkup(
+      line
+        .replace(/^[-*+]\s+/, '')
+        .replace(/^\d+[.)]\s+/, '')
+        .replace(/^\[[ xX]\]\s+/, ''),
+    ).trim();
 
     if (!stripped || /^https?:\/\/\S+$/.test(stripped)) continue;
     lines.push(stripped);
   }
 
   return lines;
+}
+
+/**
+ * Remove emphasis and code markers without damaging the text they surround.
+ *
+ * Stripping `*`, `_`, and backticks indiscriminately corrupts the very content worth
+ * remembering: `America/Los_Angeles` becomes `America/LosAngeles`, and `GITHUB_TOKEN`
+ * becomes `GITHUBTOKEN`. A memory is meant to be handed back to an agent verbatim, so a
+ * silently mangled one is worse than no memory at all. Only paired delimiters at word
+ * boundaries are treated as markup.
+ */
+function stripInlineMarkup(text: string): string {
+  return text
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, '$1')
+    .replace(/(?<![A-Za-z0-9_])__(?=\S)([\s\S]*?\S)__(?![A-Za-z0-9_])/g, '$1')
+    .replace(/(?<![A-Za-z0-9*])\*(?=\S)([^*]*?\S)\*(?![A-Za-z0-9*])/g, '$1')
+    .replace(/(?<![A-Za-z0-9_])_(?=\S)([^_]*?\S)_(?![A-Za-z0-9_])/g, '$1');
 }

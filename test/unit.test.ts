@@ -19,6 +19,7 @@ import {
 import {
   appliesToAgent,
   classify,
+  extractMemories,
   isSyncable,
   looksLikeSecret,
   restrictToAgents,
@@ -204,6 +205,61 @@ test('selection combines status, agent, and project scope', () => {
 
   const forClaude = selectForAgent(records, 'claude', { project: '/repo/one' }).map((m) => m.id);
   deepStrictEqual(forClaude, ['a', 'b', 'e'], 'claude additionally gets its pinned memory');
+});
+
+test('extraction preserves content instead of mangling it', () => {
+  const markdown = [
+    'My timezone is America/Los_Angeles.',
+    'I always use **pnpm** rather than npm.',
+    'Always run the tests with `GITHUB_TOKEN` set.',
+  ].join('\n');
+
+  const contents = extractMemories(markdown, {
+    source: 'CLAUDE.md',
+    sourceAgent: 'claude',
+  }).map((draft) => draft.content);
+
+  // Underscores inside real identifiers must survive; a mangled memory is worse than none.
+  ok(
+    contents.some((content) => content.includes('America/Los_Angeles')),
+    `timezone was corrupted: ${JSON.stringify(contents)}`,
+  );
+  ok(
+    contents.some((content) => content.includes('GITHUB_TOKEN')),
+    `variable name was corrupted: ${JSON.stringify(contents)}`,
+  );
+
+  // Emphasis and code markers themselves should still be removed.
+  for (const content of contents) {
+    strictEqual(content.includes('**'), false, `markup leaked into: ${content}`);
+    strictEqual(content.includes('`'), false, `markup leaked into: ${content}`);
+  }
+  ok(
+    contents.some((content) => content.includes('use pnpm rather')),
+    `bold markers should be stripped: ${JSON.stringify(contents)}`,
+  );
+});
+
+test('extraction skips code blocks and headings', () => {
+  const markdown = [
+    '# My heading',
+    '',
+    'I prefer pnpm over npm.',
+    '',
+    '```bash',
+    'export TOKEN=I prefer secrets',
+    '```',
+    '',
+    '| table | prefer |',
+  ].join('\n');
+
+  const contents = extractMemories(markdown, {
+    source: 'CLAUDE.md',
+    sourceAgent: 'claude',
+  }).map((draft) => draft.content);
+
+  strictEqual(contents.length, 1, `unexpected extractions: ${JSON.stringify(contents)}`);
+  strictEqual(contents[0], 'I prefer pnpm over npm.');
 });
 
 test('sharing summary counts each agent audience', () => {
