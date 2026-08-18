@@ -1,0 +1,25 @@
+{
+  "name": "agentpass",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "Sign in to your AI. Carry your identity, memory, and config across every AI agent.",
+  "type": "module",
+  "bin": {
+    "agentpass": "./dist/bin.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@agentpass/core": "*",
+    "@agentpass/memory": "*",
+    "@agentpass/profile": "*",
+    "@agentpass/sync": "*",
+    "@agentpass/adapter-sdk": "*"
+  }
+}

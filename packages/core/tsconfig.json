@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../profile" },
+    { "path": "../memory" },
+    { "path": "../crypto" },
+    { "path": "../sync" },
+    { "path": "../adapter-sdk" },
+    { "path": "../../integrations/mem0" },
+    { "path": "../../integrations/secrets" },
+    { "path": "../../adapters/claude" },
+    { "path": "../../adapters/openclaw" },
+    { "path": "../../adapters/codex" },
+    { "path": "../../adapters/cursor" }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "name": "agentpassport",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sign in to your AI. A portable identity, memory, and configuration layer for AI agents.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "packageManager": "npm@11.17.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "adapters/*",
+    "integrations/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "check": "npm run format && npm run lint && npm run build && npm run test",
+    "clean": "tsc -b --clean",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "lint": "eslint .",
+    "agentpass": "node apps/cli/dist/bin.js",
+    "test": "node --test --test-concurrency=1 \"test/*.test.ts\"",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/node": "^24.10.1",
+    "eslint": "^9.39.2",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.1"
+  }
+}

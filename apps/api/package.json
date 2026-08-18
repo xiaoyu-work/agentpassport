@@ -1,0 +1,15 @@
+{
+  "name": "@agentpass/api",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@agentpass/crypto": "*"
+  }
+}
