@@ -4,10 +4,12 @@ import {
   applyManagedBlock,
   definePlugin,
   applyPlan,
+  captureArtifact,
   describeChange,
   expandEnv,
   inferWorkspaceHints,
   mergePreserving,
+  missingArtifacts,
   parseInstructions,
   readJsonIfExists,
   readManagedBlock,
@@ -16,6 +18,7 @@ import {
   redactEnv,
   renderInstructions,
   renderSkillFile,
+  restoreArtifacts,
   skillFilePath,
   stripManagedBlock,
   toCanonicalModel,
@@ -136,6 +139,20 @@ export class ClaudeAdapter implements AgentAdapter {
     for (const skill of skills) builder.skill(skill);
     if (skills.length > 0) sources.push(paths.skillsDir);
 
+    // Keep the originals too. The normalized profile above cannot represent permissions,
+    // hooks, or a status line, and a restore onto a fresh machine would silently drop them.
+    for (const [file, kind, scope] of [
+      [paths.userSettings, 'settings', 'global'],
+      [paths.userMemory, 'instructions', 'global'],
+      [paths.globalJson, 'mcp', 'global'],
+      [paths.projectMcp, 'mcp', 'project'],
+      [paths.projectMemory, 'instructions', 'project'],
+    ] as const) {
+      const captured = await captureArtifact(context, file, { agent: AGENT_ID, kind, scope });
+      warnings.push(...captured.warnings);
+      if (captured.artifact) builder.artifact(captured.artifact);
+    }
+
     return { profile: builder.build(), memories, warnings, sources };
   }
 
@@ -153,12 +170,21 @@ export class ClaudeAdapter implements AgentAdapter {
     profile: UniversalProfile,
     memories: MemoryRecord[] = [],
   ): Promise<ExportResult> {
+    // Originals first, so a fresh machine regains settings this schema cannot model. They
+    // never overwrite an existing file, and the managed merges below then run on top.
+    const restored = await restoreArtifacts(context, profile.artifacts, AGENT_ID);
+
     const { changes, warnings } = await this.plan(context, profile, memories);
     const { written, skipped } = await applyPlan(changes, {
       dryRun: context.dryRun,
       write: writeFileAtomic,
     });
-    return { agent: AGENT_ID, written, skipped, warnings };
+    return {
+      agent: AGENT_ID,
+      written: [...restored.written, ...written],
+      skipped: [...restored.skipped, ...skipped],
+      warnings,
+    };
   }
 
   async validate(context: AdapterContext): Promise<ValidationResult> {
@@ -218,6 +244,17 @@ export class ClaudeAdapter implements AgentAdapter {
     const paths = claudePaths(context);
     const changes: ConfigChange[] = [];
     const warnings: AdapterWarning[] = [];
+
+    // Show the originals a fresh machine would regain, so the preview matches the export.
+    for (const { artifact, target } of await missingArtifacts(
+      context,
+      profile.artifacts,
+      AGENT_ID,
+    )) {
+      changes.push(
+        describeChange(target, undefined, artifact.content, `original ${artifact.kind} file`),
+      );
+    }
 
     const memoryBefore = await readTextIfExists(paths.userMemory);
     changes.push(

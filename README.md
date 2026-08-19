@@ -156,6 +156,48 @@ pay for, and a full history of every change for free.
 
 Everything you wrote yourself is preserved byte for byte.
 
+## Two copies, on purpose
+
+Agent Passport keeps your configuration twice, because one copy cannot do both jobs.
+
+| Copy           | What it is                         | What it is for                      |
+| -------------- | ---------------------------------- | ----------------------------------- |
+| **Normalized** | Translated into a universal schema | Moving between agents               |
+| **Original**   | The source files, verbatim         | Restoring the same agent faithfully |
+
+The normalized profile is what lets a preference learned in Claude Code appear in Cursor —
+but it is a translation, and every translation loses whatever the schema does not model.
+Claude Code's `permissions`, `hooks`, and `statusLine` have no universal equivalent, so a
+new machine restored from the normalized copy alone would silently come up missing them.
+
+Keeping the originals fixes that without giving up portability:
+
+```console
+$ agentpass restore claude          # on a machine with no Claude config
+✓ 4 file(s) written
+```
+
+```json
+{
+  "model": "claude-sonnet",
+  "permissions": { "allow": ["Bash(npm run test)"], "deny": ["Read(./.env)"] },
+  "hooks": { "PreToolUse": [{ "matcher": "Bash", "hooks": [...] }] },
+  "statusLine": { "type": "command", "command": "~/bin/statusline.sh" }
+}
+```
+
+Two rules govern the originals:
+
+- **They never overwrite.** A file that already exists on the machine wins, because it is
+  the newer copy and may hold local changes. Originals populate a fresh machine; they do
+  not fight a configured one.
+- **They carry no credentials.** A verbatim copy of `~/.claude.json` would otherwise
+  include your live tokens. Structured values are walked during capture and anything
+  credential-shaped becomes `${VAR}` indirection, so the rest of the file survives intact
+  while the secret does not travel.
+
+Files above 256KB are skipped rather than synced, with a note saying so.
+
 ### What is never stored anywhere
 
 API keys and tokens. Agent Passport keeps a reference such as `env://GITHUB_TOKEN` or

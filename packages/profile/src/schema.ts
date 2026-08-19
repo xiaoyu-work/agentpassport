@@ -133,6 +133,43 @@ export const SecretsConfigSchema = z.object({
 });
 export type SecretsConfig = z.infer<typeof SecretsConfigSchema>;
 
+export const ArtifactKindSchema = z.enum([
+  'instructions',
+  'settings',
+  'mcp',
+  'skill',
+  'rule',
+  'memory',
+  'other',
+]);
+export type ArtifactKind = z.infer<typeof ArtifactKindSchema>;
+
+/**
+ * A verbatim copy of a file Agent Passport read from an agent.
+ *
+ * The normalized profile above is a translation, and every translation loses something:
+ * it can only carry the fields this schema models, so an agent's permissions, hooks, or
+ * status line would vanish on the trip to a new machine. Keeping the original bytes as
+ * well means a same-agent restore is faithful, while the normalized form is what makes a
+ * cross-agent restore possible at all. Neither replaces the other.
+ *
+ * Content is scrubbed of credential material before it is stored, so a raw capture never
+ * becomes a new place a token lives.
+ */
+export const ArtifactSchema = z.object({
+  agent: z.string().min(1),
+  /** Portable location: `~/`-relative for user files, `./`-relative for project files. */
+  path: z.string().min(1),
+  kind: ArtifactKindSchema.default('other'),
+  scope: z.enum(['global', 'project']).default('global'),
+  content: z.string(),
+  bytes: z.number().int().nonnegative().default(0),
+  /** True when credential material was replaced during capture. */
+  redacted: z.boolean().default(false),
+  capturedAt: z.string().default(() => new Date().toISOString()),
+});
+export type Artifact = z.infer<typeof ArtifactSchema>;
+
 export const PROFILE_SCHEMA_VERSION = 1;
 
 export const UniversalProfileSchema = z.object({
@@ -145,6 +182,8 @@ export const UniversalProfileSchema = z.object({
   workspace: WorkspaceSchema.prefault({}),
   memory: MemoryConfigSchema.prefault({}),
   secrets: SecretsConfigSchema.prefault({}),
+  /** Verbatim originals, so a same-agent restore loses nothing this schema cannot model. */
+  artifacts: z.array(ArtifactSchema).default([]),
   /** Path (see `paths.ts`) -> change metadata. */
   meta: z.record(z.string(), FieldMetaSchema).default({}),
   revision: z.number().int().nonnegative().default(0),

@@ -5,16 +5,19 @@ import {
   ProfileBuilder,
   applyManagedBlock,
   applyPlan,
+  captureArtifact,
   definePlugin,
   describeChange,
   expandEnv,
   inferWorkspaceHints,
   mergePreserving,
+  missingArtifacts,
   parseFrontmatter,
   parseInstructions,
   readJsonIfExists,
   readManagedBlock,
   readTextIfExists,
+  restoreArtifacts,
   redactEnv,
   renderFrontmatter,
   renderInstructions,
@@ -123,6 +126,16 @@ export class CursorAdapter implements AgentAdapter {
       if (text === undefined) continue;
       sources.push(full);
 
+      // Rules are Cursor's principal configuration, so keep each one verbatim as well as
+      // in normalized form; frontmatter this schema does not model would be lost otherwise.
+      const captured = await captureArtifact(context, full, {
+        agent: AGENT_ID,
+        kind: 'rule',
+        scope: 'project',
+      });
+      warnings.push(...captured.warnings);
+      if (captured.artifact) builder.artifact(captured.artifact);
+
       const { data, body } = parseFrontmatter(text);
 
       if (file === PASSPORT_RULE_FILE) {
@@ -201,6 +214,18 @@ export class CursorAdapter implements AgentAdapter {
       }
     }
 
+    // Keep the originals too. The normalized profile cannot represent every setting an
+    // agent supports, and a restore onto a fresh machine would silently drop the rest.
+    for (const [file, kind, scope] of [
+      [paths.projectMcp, 'mcp', 'project'],
+      [paths.globalMcp, 'mcp', 'global'],
+      [paths.agentsFile, 'instructions', 'project'],
+    ] as const) {
+      const captured = await captureArtifact(context, file, { agent: AGENT_ID, kind, scope });
+      warnings.push(...captured.warnings);
+      if (captured.artifact) builder.artifact(captured.artifact);
+    }
+
     return { profile: builder.build(), memories, warnings, sources };
   }
 
@@ -218,12 +243,19 @@ export class CursorAdapter implements AgentAdapter {
     profile: UniversalProfile,
     memories: MemoryRecord[] = [],
   ): Promise<ExportResult> {
+    const restored = await restoreArtifacts(context, profile.artifacts, AGENT_ID);
+
     const { changes, warnings } = await this.plan(context, profile, memories);
     const { written, skipped } = await applyPlan(changes, {
       dryRun: context.dryRun,
       write: writeFileAtomic,
     });
-    return { agent: AGENT_ID, written, skipped, warnings };
+    return {
+      agent: AGENT_ID,
+      written: [...restored.written, ...written],
+      skipped: [...restored.skipped, ...skipped],
+      warnings,
+    };
   }
 
   async validate(context: AdapterContext): Promise<ValidationResult> {
@@ -255,6 +287,16 @@ export class CursorAdapter implements AgentAdapter {
     const paths = cursorPaths(context);
     const changes: ConfigChange[] = [];
     const warnings: AdapterWarning[] = [];
+
+    for (const { artifact, target } of await missingArtifacts(
+      context,
+      profile.artifacts,
+      AGENT_ID,
+    )) {
+      changes.push(
+        describeChange(target, undefined, artifact.content, `original ${artifact.kind} file`),
+      );
+    }
 
     const passportBefore = await readTextIfExists(paths.passportRule);
     const passportBody = applyManagedBlock(

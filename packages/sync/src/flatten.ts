@@ -1,6 +1,7 @@
 import {
   ProfilePaths,
   canonicalStringify,
+  type Artifact,
   type McpServer,
   type Project,
   type Skill,
@@ -233,6 +234,20 @@ export function flattenProfile(profile: UniversalProfile): Map<string, FlatEntry
           if (next === undefined) delete target.secrets.references[name];
           else target.secrets.references[name] = next;
         },
+      ),
+    );
+  }
+
+  for (const artifact of profile.artifacts) {
+    add(
+      collectionEntry<Artifact>(
+        ProfilePaths.artifact(artifact.agent, artifact.path),
+        'original file',
+        `${artifact.agent}: ${artifact.path}`,
+        `${artifact.bytes} bytes`,
+        artifact,
+        (target) => target.artifacts,
+        (candidate) => candidate.agent === artifact.agent && candidate.path === artifact.path,
       ),
     );
   }

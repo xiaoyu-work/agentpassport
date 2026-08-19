@@ -4,15 +4,18 @@ import {
   applyManagedBlock,
   definePlugin,
   applyPlan,
+  captureArtifact,
   describeChange,
   expandEnv,
   inferWorkspaceHints,
   mergePreserving,
+  missingArtifacts,
   parseInstructions,
   readJsonIfExists,
   readManagedBlock,
   readSkillsDir,
   readTextIfExists,
+  restoreArtifacts,
   redactEnv,
   renderInstructions,
   renderSkillFile,
@@ -161,6 +164,19 @@ export class OpenClawAdapter implements AgentAdapter {
     for (const skill of skills) builder.skill(skill);
     if (skills.length > 0) sources.push(paths.skillsDir);
 
+    // Keep the originals too. The normalized profile cannot represent every setting an
+    // agent supports, and a restore onto a fresh machine would silently drop the rest.
+    for (const [file, kind, scope] of [
+      [paths.configFile, 'settings', 'global'],
+      [paths.agentsFile, 'instructions', 'global'],
+      [paths.userFile, 'instructions', 'global'],
+      [paths.memoryFile, 'memory', 'global'],
+    ] as const) {
+      const captured = await captureArtifact(context, file, { agent: AGENT_ID, kind, scope });
+      warnings.push(...captured.warnings);
+      if (captured.artifact) builder.artifact(captured.artifact);
+    }
+
     return { profile: builder.build(), memories, warnings, sources };
   }
 
@@ -178,12 +194,19 @@ export class OpenClawAdapter implements AgentAdapter {
     profile: UniversalProfile,
     memories: MemoryRecord[] = [],
   ): Promise<ExportResult> {
+    const restored = await restoreArtifacts(context, profile.artifacts, AGENT_ID);
+
     const { changes, warnings } = await this.plan(context, profile, memories);
     const { written, skipped } = await applyPlan(changes, {
       dryRun: context.dryRun,
       write: writeFileAtomic,
     });
-    return { agent: AGENT_ID, written, skipped, warnings };
+    return {
+      agent: AGENT_ID,
+      written: [...restored.written, ...written],
+      skipped: [...restored.skipped, ...skipped],
+      warnings,
+    };
   }
 
   async validate(context: AdapterContext): Promise<ValidationResult> {
@@ -218,6 +241,16 @@ export class OpenClawAdapter implements AgentAdapter {
     const paths = openclawPaths(context);
     const changes: ConfigChange[] = [];
     const warnings: AdapterWarning[] = [];
+
+    for (const { artifact, target } of await missingArtifacts(
+      context,
+      profile.artifacts,
+      AGENT_ID,
+    )) {
+      changes.push(
+        describeChange(target, undefined, artifact.content, `original ${artifact.kind} file`),
+      );
+    }
 
     const agentsBefore = await readTextIfExists(paths.agentsFile);
     changes.push(

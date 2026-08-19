@@ -18,6 +18,7 @@ export const ProfilePaths = {
   project: (name: string) => `workspace.projects.${name}`,
   workspace: (field: string) => `workspace.${field}`,
   secretRef: (name: string) => `secrets.references.${name}`,
+  artifact: (agent: string, path: string) => `artifacts.${agent}:${path}`,
   memory: (field: string) => `memory.${field}`,
 } as const;
 
@@ -39,6 +40,8 @@ export function sectionOf(path: string): string {
       return 'Workspace rules';
     case 'secrets':
       return 'Secret references';
+    case 'artifacts':
+      return 'Original files';
     case 'memory':
       return 'Memory';
     default:

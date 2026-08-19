@@ -1,6 +1,7 @@
 import {
   ProfilePaths,
   stampField,
+  type Artifact,
   type Identity,
   type McpServer,
   type ModelPreferences,
@@ -122,6 +123,17 @@ export class ProfileBuilder {
   secretRef(name: string, reference: string): this {
     this.profile.secrets.references[name] = reference;
     this.stamp(ProfilePaths.secretRef(name));
+    return this;
+  }
+
+  /** Store a verbatim copy of a source file, so nothing this schema omits is lost. */
+  artifact(artifact: Artifact): this {
+    upsert(
+      this.profile.artifacts,
+      artifact,
+      (candidate) => candidate.agent === artifact.agent && candidate.path === artifact.path,
+    );
+    this.stamp(ProfilePaths.artifact(artifact.agent, artifact.path));
     return this;
   }
 

@@ -6,6 +6,7 @@ export * from './changes.js';
 export * from './instructions.js';
 export * from './skills.js';
 export * from './builder.js';
+export * from './artifacts.js';
 export * from './models.js';
 export * from './registry.js';
 export * from './plugin.js';
