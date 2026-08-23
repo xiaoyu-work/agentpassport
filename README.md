@@ -1,10 +1,11 @@
 # Agent Passport
 
-**Encrypted, per-agent config backup for AI coding tools.**
+**Per-agent config backup for AI coding tools, synced to a git repo you own.**
 
-One CLI, one recovery code, snapshots every known agent's config to an encrypted
-folder you can push to a private git repo. Change machines, wipe a laptop,
-reinstall an agent — pull the snapshot back and you are exactly where you left off.
+One CLI. Each agent's files are stored verbatim under `~/.agentpass/agents/<agent>/`
+and pushed to a private git repo. Change machines, wipe a laptop, reinstall an
+agent — clone the repo back and restore. No encryption layer, no recovery code,
+no lock-in: your backup is just files you can `cat`, `git diff`, and `cp`.
 
 > [!WARNING]
 > Developer preview. Snapshot format may change before 1.0.
@@ -19,67 +20,89 @@ Requires Node.js 22+. No compiler, no native modules, no account.
 
 ## Quick start
 
+The whole flow, using a real example repo
+[`xiaoyu-ai-twin/99-passport`](https://github.com/xiaoyu-ai-twin/99-passport) —
+substitute your own private repo.
+
+**1. Create an empty private repo on GitHub / GitLab / whatever.**
+   You own it; the CLI just pushes to it. Nothing else needs to exist there.
+
+**2. First-time setup on this machine:**
+
 ```console
-agentpass setup                       # create your local vault + recovery code
-agentpass scan                        # what's installed here
-agentpass snapshot openclaw           # encrypted backup of one agent
-agentpass snapshot                    # backup every detected agent
-agentpass restore openclaw --dry-run  # preview restore
+agentpass setup                                                   # create local passport
+agentpass remote git@github.com:xiaoyu-ai-twin/99-passport.git    # bind + initial push
+agentpass snapshot --push                                         # back up every detected agent
 ```
 
-`setup` prints a recovery code once. It is the only way to unlock the vault on
-another machine. It is never uploaded.
+`agentpass remote` handles `git init`, sets `origin`, does the first commit and
+push. Run it once per machine.
+
+**3. Daily use — change something, back it up:**
+
+```console
+# edit ~/.openclaw/workspace/MEMORY.md, etc.
+agentpass snapshot --push        # only pushes if something actually changed
+```
+
+**4. New machine / disaster recovery:**
+
+```console
+git clone git@github.com:xiaoyu-ai-twin/99-passport.git ~/.agentpass
+agentpass restore                # write every agent's files back to disk
+```
+
+That's it.
 
 ## How it works
 
-Each agent gets its own encrypted snapshot:
+Each agent's files go into `~/.agentpass/agents/<agent>/`:
 
 ```
-~/.agentpass/agents/<agent>/snapshot.enc.json
+agents/openclaw/
+├── files/                                # verbatim copies at their original relative paths
+│   ├── openclaw.json
+│   └── workspace/
+│       ├── AGENTS.md
+│       ├── MEMORY.md
+│       └── memory/2026-08-23.md
+└── snapshot.json                         # hash + capturedAt + file list
 ```
 
-Files are stored verbatim — no translation, no schema, no cross-agent sharing.
-`restore` writes them back to the exact paths they came from.
+- **`snapshot`** collects the files described by the agent's adapter and mirrors
+  them into `files/`. Content hash decides whether anything gets rewritten.
+- **`restore`** copies `files/` back to the paths they came from.
+- **`remote`** binds the whole `~/.agentpass/` directory to a git remote.
+- **`--push`** on `snapshot` runs `git add / commit / push` when there's a diff.
 
 Supported adapters: `openclaw`, `claude`, `codex`, `cursor`. Each ships only a
-`paths.ts` describing which files belong in its snapshot.
-
-## Sync
-
-Snapshots + vault push through any of these backends:
-
-```console
-agentpass snapshot --push             # uses the sync target from setup
-```
-
-Configure a target once (git, folder, or http). The target only ever sees
-ciphertext.
-
-## Where your data lives
-
-- `~/.agentpass/vault.json` — keyring + session (safe to sync)
-- `~/.agentpass/agents/<agent>/snapshot.enc.json` — encrypted per-agent backup
-- `~/.agentpass/device.key`, `device-id`, `keystore.json` — **machine-local, never sync**
+`paths.ts` describing which files belong in its snapshot — no schema, no
+translation, no cross-agent sharing.
 
 ## Commands
 
-| Command                       | Purpose                                    |
-| ----------------------------- | ------------------------------------------ |
-| `agentpass`                   | Show status                                |
-| `agentpass setup`             | Create a passport, or join with `--code`   |
-| `agentpass status`            | What is stored on this machine             |
-| `agentpass scan`              | List detected agents                       |
-| `agentpass plugins`           | Which adapters are installed               |
-| `agentpass snapshot [agent]`  | Encrypted per-agent backup (`--diff --dry-run --push`) |
-| `agentpass restore  [agent]`  | Restore a snapshot back to disk (`--prune --dry-run`) |
-| `agentpass logout`            | Remove the passport from this computer     |
+| Command                                       | Purpose                                          |
+| --------------------------------------------- | ------------------------------------------------ |
+| `agentpass`                                   | Show status                                      |
+| `agentpass setup`                             | Create a local passport                          |
+| `agentpass remote [<git-url>] [--branch main]`| Bind passport home to a git repo (or show it)    |
+| `agentpass status`                            | What is stored on this machine                   |
+| `agentpass scan`                              | List detected agents                             |
+| `agentpass plugins`                           | Which adapters are installed                     |
+| `agentpass snapshot [agent]`                  | Per-agent backup (`--diff --dry-run --push`)     |
+| `agentpass restore  [agent]`                  | Restore a snapshot to disk (`--prune --dry-run`) |
+| `agentpass logout`                            | Remove the passport from this computer           |
 
-## Encryption
+## Where your data lives
 
-- AES-256-GCM for content
-- Argon2id (or scrypt fallback) for the recovery code
-- Per-device key sealed by the vault key and stored in the OS credential store
-- Losing a device only means removing that device's keyring slot
+- `~/.agentpass/agents/<agent>/files/` — plain-text copies of the agent's files
+- `~/.agentpass/agents/<agent>/snapshot.json` — manifest (hash, file list)
+- `~/.agentpass/vault.json` — local session/keyring metadata
+- `~/.agentpass/device.key`, `device-id`, `keystore.json` — machine-local, gitignored
+
+Because backups are plain files, you get every git tool for free: `git log
+agents/openclaw/files/workspace/MEMORY.md`, GitHub's blame view, `git revert`.
+Security comes from your repo being private, not from a wrapping crypto layer.
 
 ## Adding an agent
 
@@ -98,7 +121,7 @@ See `adapters/openclaw` for the reference implementation.
 ```
 apps/cli              CLI entry point (agentpass)
 packages/core         Passport, vault store, plugin loader
-packages/crypto       Keyring, envelope, KDF
+packages/crypto       Keyring, envelope, KDF (used by vault, not snapshots)
 packages/adapter-sdk  Snapshot helpers + shared types
 adapters/*            Per-agent adapters (paths only)
 ```
