@@ -23,16 +23,20 @@ export interface OpenClawPaths {
   heartbeatFile: string;
   memoryDir: string;
   skillsDir: string;
+  agentsDir: string;
 }
 
 /**
  * Every file/directory that belongs in an OpenClaw identity snapshot.
  *
  * Ordered so a human reading the manifest sees the persona files first (SOUL, IDENTITY,
- * AGENTS, USER, TOOLS) before the state (MEMORY, memory/, config, skills).
+ * AGENTS, USER, TOOLS) before the state (MEMORY, memory/, config, skills, agents/).
  *
- * Session transcripts under `agents/<id>/sessions/` are deliberately excluded — they are
- * large, privacy-heavy, and rarely useful when moving identity to a fresh machine.
+ * `agentsDir` (~/.openclaw/agents) holds each agent's sqlite auth store — provider API
+ * keys, OAuth tokens. Backing it up means a fresh machine restores your logins along
+ * with your identity. Session transcripts under `agents/<id>/sessions/` are the one
+ * carve-out from that tree, filtered at snapshot time because they are large and
+ * privacy-heavy.
  */
 export function snapshotEntries(paths: OpenClawPaths): string[] {
   return [
@@ -46,6 +50,7 @@ export function snapshotEntries(paths: OpenClawPaths): string[] {
     paths.memoryDir,
     paths.configFile,
     paths.skillsDir,
+    paths.agentsDir,
   ];
 }
 
@@ -75,6 +80,7 @@ export function openclawPaths(context: AdapterContext): OpenClawPaths {
     heartbeatFile: join(workspaceDir, 'HEARTBEAT.md'),
     memoryDir: join(workspaceDir, 'memory'),
     skillsDir: join(stateDir, 'skills'),
+    agentsDir: join(stateDir, 'agents'),
   };
 }
 
