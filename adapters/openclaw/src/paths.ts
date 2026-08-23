@@ -1,5 +1,5 @@
 import { isAbsolute, join, resolve } from 'node:path';
-import type { AdapterContext } from '@agentpassport/adapter-sdk';
+import type { AdapterContextLike as AdapterContext } from './context.js';
 
 /**
  * OpenClaw's on-disk layout, mirroring `src/config/paths.ts` and

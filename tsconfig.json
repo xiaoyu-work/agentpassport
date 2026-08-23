@@ -1,12 +1,8 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/profile" },
     { "path": "packages/crypto" },
-    { "path": "packages/memory" },
     { "path": "packages/adapter-sdk" },
-    { "path": "packages/sync" },
-    { "path": "integrations/mem0" },
     { "path": "integrations/secrets" },
     { "path": "adapters/claude" },
     { "path": "adapters/openclaw" },

@@ -8,9 +8,6 @@
   "references": [
     { "path": "../../packages/core" },
     { "path": "../../packages/crypto" },
-    { "path": "../../packages/profile" },
-    { "path": "../../packages/memory" },
-    { "path": "../../packages/sync" },
     { "path": "../../packages/adapter-sdk" },
     { "path": "../../adapters/openclaw" },
     { "path": "../../adapters/claude" },

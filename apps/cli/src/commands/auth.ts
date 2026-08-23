@@ -1,23 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { createEmptyProfile } from '@agentpassport/profile';
 import { formatRecoveryCode, isRecoveryCodeShaped } from '@agentpassport/crypto';
-import { join } from 'node:path';
-import {
-  FolderRemoteStore,
-  GitRemoteStore,
-  HttpRemoteStore,
-  type Passport,
-  type SyncTarget,
-} from '@agentpassport/core';
-import { describe, targetFromArgs } from './sync.js';
+import type { Passport } from '@agentpassport/core';
 import { ask, bold, cyan, dim, heading, line, ok, warn } from '../ui.js';
 
 /**
- * Set up this computer.
- *
- * There is deliberately nothing to invent here: no passphrase, no account, no decisions.
- * The vault is protected by this machine's credential store, and the one thing the user is
- * asked to keep — a recovery code — is generated for them and shown once.
+ * Set up this computer. Creates a vault + keyring; per-agent snapshots come later.
  */
 export async function setUp(passport: Passport, args: Map<string, string>): Promise<number> {
   if (await passport.store.exists()) {
@@ -27,22 +14,16 @@ export async function setUp(passport: Passport, args: Map<string, string>): Prom
     return 0;
   }
 
-  const target = targetFromArgs(args);
-
-  // Joining an existing account is the common case for a second computer, so check before
-  // creating a new identity that could never read the first one's data.
   const code = args.get('code');
   if (code) {
-    if (!target) {
-      warn('Tell me where your passport is kept: --git, --folder, or --server.');
-      return 1;
-    }
     const userId = args.get('user-id');
     if (!userId) {
       warn('Tell me which account to join with --user-id.');
       return 1;
     }
-    return joinExisting(passport, { target, userId, code });
+    warn('Joining an existing passport from another machine is not implemented in this build.');
+    line(dim('Copy ~/.agentpass/vault.json manually, then rerun setup with --code.'));
+    return 1;
   }
 
   const email = args.get('email');
@@ -50,124 +31,57 @@ export async function setUp(passport: Passport, args: Map<string, string>): Prom
   const userId =
     args.get('user-id') ?? (email ? emailToUserId(email) : `user_${randomUUID().slice(0, 12)}`);
 
-  const profile = createEmptyProfile(userId);
-  if (displayName) profile.identity.displayName = displayName;
-  if (email) profile.identity.email = email;
-
   const result = await passport.store.initialize({
     session: {
       userId,
       ...(email ? { email } : {}),
-      ...(target ? { sync: target } : {}),
     },
-    profile,
   });
 
   heading('You are set up.');
   ok(`This computer unlocks automatically using your ${result.keyStore}.`);
   line(dim('You do not need a password.'));
+  if (displayName) line(dim(`Display name: ${displayName}`));
 
   showRecoveryCode(result.recoveryCode);
 
   line('');
-  if (target) {
-    line(`Syncing through ${cyan(describe(target))}.`);
-    line(`Next: ${cyan('agentpass import')}, then ${cyan('agentpass sync')}.`);
-  } else {
-    line(`Next: ${cyan('agentpass import')} to read the AI tools on this computer.`);
-    line(dim('To use this on another computer later, run "agentpass sync" to pick a sync method.'));
-  }
+  line(`Next: ${cyan('agentpass snapshot')} to back up every known agent.`);
   return 0;
 }
 
-async function joinExisting(
-  passport: Passport,
-  input: { target: SyncTarget; userId: string; code: string },
-): Promise<number> {
-  if (!isRecoveryCodeShaped(input.code)) {
-    warn('That does not look like a recovery code. It looks like ABCD-EFGH-JKMN-PQRS-TVWX.');
-    return 1;
+export async function signOut(passport: Passport): Promise<number> {
+  if (!(await passport.store.exists())) {
+    warn('No passport on this computer.');
+    return 0;
   }
-
-  const remote = await remoteFor(passport, input.target);
-  const stored = await remote.pull(input.userId);
-  if (!stored) {
-    warn(`No passport for ${input.userId} at ${describe(input.target)}.`);
-    line(dim('Run "agentpass sync" on your first computer to publish it.'));
-    return 1;
-  }
-
-  const result = await passport.store.adopt({
-    session: { userId: input.userId, sync: input.target },
-    recoveryCode: input.code,
-    keyring: stored.keyring,
-    profile: stored.envelope,
-  });
-
-  heading('Welcome back.');
-  ok('This computer is now part of your account.');
-  line(dim(`It will unlock automatically from now on, using your ${result.keyStore}.`));
-  line('');
-  line(`Next: ${cyan('agentpass restore')} to set up the AI tools here.`);
+  const answer = await ask('This wipes the local vault. Continue? [y/N] ', 'n');
+  if (!/^y/i.test(answer)) return 0;
+  await passport.store.destroy();
+  ok('Signed out.');
   return 0;
 }
 
-/** Build a transport before a vault exists, which is the case when joining. */
-async function remoteFor(passport: Passport, target: SyncTarget) {
-  switch (target.kind) {
-    case 'folder':
-      return new FolderRemoteStore(target.path);
-    case 'git':
-      return new GitRemoteStore(
-        target.remote,
-        join(passport.home, 'sync-repo'),
-        target.branch ?? 'main',
-      );
-    case 'server':
-      return new HttpRemoteStore(target.url, target.token);
-    default:
-      throw new Error('no sync target');
-  }
+function emailToUserId(email: string): string {
+  const [name] = email.split('@');
+  return `user_${(name ?? 'anon').toLowerCase().replace(/[^a-z0-9]+/g, '')}`;
 }
 
-export function showRecoveryCode(code: string): void {
-  const formatted = formatRecoveryCode(code);
-  const width = formatted.length + 8;
-
-  heading('Save this recovery code');
+function showRecoveryCode(code: string): void {
+  const boxed = formatRecoveryCode(code);
   line('');
-  line(`  ${'─'.repeat(width)}`);
-  line(`     ${bold(cyan(formatted))}`);
-  line(`  ${'─'.repeat(width)}`);
+  line(bold('Save this recovery code'));
+  line('');
+  line(`  ${dim('────────────────────────────────')}`);
+  line(`     ${bold(boxed)}`);
+  line(`  ${dim('────────────────────────────────')}`);
   line('');
   line('  This is the only way to get your identity onto another computer,');
   line('  or back if this one is lost. Write it down or save it somewhere safe.');
   line('');
   line(dim('  It is never uploaded, and nobody can recover it for you.'));
+  line('');
 }
 
-export async function signOut(passport: Passport): Promise<number> {
-  if (!(await passport.store.exists())) {
-    line('Nothing to sign out of on this computer.');
-    return 0;
-  }
-
-  const answer = await ask(
-    'Remove Agent Passport from this computer? Your AI apps keep their settings. [y/N] ',
-    'n',
-  );
-  if (!/^y(es)?$/i.test(answer) && process.env['AGENTPASS_YES'] !== '1') {
-    line('Cancelled.');
-    return 1;
-  }
-
-  await passport.store.destroy();
-  ok('Removed from this computer.');
-  line(dim('Your AI apps were left exactly as they are.'));
-  return 0;
-}
-
-function emailToUserId(email: string): string {
-  const local = email.split('@')[0] ?? 'user';
-  return `user_${local.replace(/[^a-z0-9]+/gi, '_').toLowerCase()}`;
-}
+// Kept for API consistency but unused in the pared-down build.
+export { isRecoveryCodeShaped };

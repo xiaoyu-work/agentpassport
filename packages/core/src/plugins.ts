@@ -1,16 +1,62 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import {
-  AdapterRegistry,
-  validateAdapter,
-  validatePlugin,
-  type AdapterPlugin,
-  type AgentAdapter,
-} from '@agentpassport/adapter-sdk';
 import { bundledPackages } from './catalog.js';
 
 export type PluginOrigin = 'bundled' | 'installed' | 'user';
+
+export interface AdapterLike {
+  id: string;
+  displayName: string;
+}
+
+export interface AdapterPluginLike {
+  id: string;
+  displayName?: string;
+  version?: string;
+  create(): AdapterLike;
+}
+
+export class AdapterRegistry {
+  private readonly byId = new Map<string, AdapterLike>();
+
+  register(adapter: AdapterLike): void {
+    this.byId.set(adapter.id, adapter);
+  }
+
+  has(id: string): boolean {
+    return this.byId.has(id);
+  }
+
+  get(id: string): AdapterLike {
+    const found = this.byId.get(id);
+    if (!found) throw new Error(`Unknown adapter "${id}"`);
+    return found;
+  }
+
+  ids(): string[] {
+    return [...this.byId.keys()].sort();
+  }
+
+  all(): AdapterLike[] {
+    return [...this.byId.values()];
+  }
+}
+
+function validatePlugin(x: unknown): { ok: boolean; reason?: string } {
+  if (!x || typeof x !== 'object') return { ok: false, reason: 'plugin is not an object' };
+  const p = x as Record<string, unknown>;
+  if (typeof p['id'] !== 'string') return { ok: false, reason: 'plugin.id missing' };
+  if (typeof p['create'] !== 'function') return { ok: false, reason: 'plugin.create missing' };
+  return { ok: true };
+}
+
+function validateAdapter(x: unknown): { ok: boolean; reason?: string } {
+  if (!x || typeof x !== 'object') return { ok: false, reason: 'adapter is not an object' };
+  const a = x as Record<string, unknown>;
+  if (typeof a['id'] !== 'string') return { ok: false, reason: 'adapter.id missing' };
+  return { ok: true };
+}
 
 export interface LoadedPlugin {
   id: string;
@@ -69,7 +115,7 @@ export async function loadPlugins(options: LoadOptions): Promise<PluginLoadResul
     if (seen.has(candidate.specifier)) continue;
     seen.add(candidate.specifier);
 
-    let plugin: AdapterPlugin;
+    let plugin: AdapterPluginLike;
     try {
       const module = (await import(candidate.specifier)) as Record<string, unknown>;
       const exported = module['plugin'] ?? module['default'];
@@ -78,7 +124,7 @@ export async function loadPlugins(options: LoadOptions): Promise<PluginLoadResul
         failed.push({ ...candidate, reason: check.reason ?? 'invalid plugin' });
         continue;
       }
-      plugin = exported as AdapterPlugin;
+      plugin = exported as AdapterPluginLike;
     } catch (error) {
       // A bundled adapter that was never installed is the normal case, not a failure.
       if (candidate.origin === 'bundled' && isModuleNotFound(error)) continue;
@@ -94,7 +140,7 @@ export async function loadPlugins(options: LoadOptions): Promise<PluginLoadResul
       continue;
     }
 
-    let adapter: AgentAdapter;
+    let adapter: AdapterLike;
     try {
       adapter = plugin.create();
     } catch (error) {

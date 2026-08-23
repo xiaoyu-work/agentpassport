@@ -5,5 +5,5 @@
     "rootDir": "./src"
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../profile" }, { "path": "../memory" }]
+  "references": []
 }

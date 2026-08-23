@@ -5,9 +5,5 @@
     "rootDir": "./src"
   },
   "include": ["src/**/*.ts"],
-  "references": [
-    { "path": "../../packages/profile" },
-    { "path": "../../packages/memory" },
-    { "path": "../../packages/adapter-sdk" }
-  ]
+  "references": []
 }

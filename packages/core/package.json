@@ -20,11 +20,7 @@
   "dependencies": {
     "@agentpassport/adapter-sdk": "^0.1.0",
     "@agentpassport/crypto": "^0.1.0",
-    "@agentpassport/mem0": "^0.1.0",
-    "@agentpassport/memory": "^0.1.0",
-    "@agentpassport/profile": "^0.1.0",
-    "@agentpassport/secrets": "^0.1.0",
-    "@agentpassport/sync": "^0.1.0"
+    "@agentpassport/secrets": "^0.1.0"
   },
   "optionalDependencies": {
     "@agentpassport/adapter-claude": "^0.1.0",

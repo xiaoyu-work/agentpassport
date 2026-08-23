@@ -3,7 +3,6 @@ import { parseArgs } from 'node:util';
 import { Passport } from '@agentpassport/core';
 import { setUp, signOut } from './commands/auth.js';
 import { scan, status } from './commands/status.js';
-import { syncCommand } from './commands/sync.js';
 import { snapshotCommand, hydrateCommand } from './commands/snapshot.js';
 import { pluginsCommand } from './commands/plugins.js';
 import { bold, cyan, dim, fail, line, warn } from './ui.js';
@@ -15,19 +14,16 @@ ${bold('Getting started')}
   agentpass snapshot             Encrypted backup of every known agent
 
 ${bold('Using a second computer')}
-  agentpass setup --user-id <id> --git <url> --code <recovery>
+  agentpass setup --user-id <id> --code <recovery>
   agentpass hydrate              Restore snapshots back to disk
 
 ${bold('Commands')}
-  setup [--name <n>] [--email <e>] [--code <recovery>] [sync flags]
+  setup [--name <n>] [--email <e>] [--code <recovery>]
   status                         What is stored on this machine
   scan                           AI tools detected on this machine
   plugins                        Which tool adapters are installed
   snapshot [agent] [--diff] [--dry-run] [--push]
   hydrate  [agent] [--prune] [--dry-run]
-  sync [--dry-run]               Reconcile with your other computers
-  sync --git <url>               Sync through a private git repo
-  sync --folder <path>           Sync through Dropbox, iCloud, OneDrive
   logout                         Remove the passport from this computer
 
 ${bold('Unlocking')}
@@ -118,8 +114,6 @@ async function main(argv: string[]): Promise<number> {
       return scan(passport);
     case 'plugins':
       return pluginsCommand(passport);
-    case 'sync':
-      return syncCommand(passport, args);
     case 'snapshot':
       return snapshotCommand(passport, rest[0], args);
     case 'hydrate':

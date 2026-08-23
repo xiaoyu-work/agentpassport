@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import type { AdapterContext } from '@agentpassport/adapter-sdk';
+import type { AdapterContextLike as AdapterContext } from './context.js';
 
 /**
  * Claude Code's on-disk layout.

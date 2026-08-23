@@ -18,8 +18,6 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@agentpassport/memory": "^0.1.0",
-    "@agentpassport/profile": "^0.1.0",
     "yaml": "^2.9.0"
   },
   "repository": {
