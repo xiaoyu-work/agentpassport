@@ -3,13 +3,11 @@
   "references": [
     { "path": "packages/crypto" },
     { "path": "packages/adapter-sdk" },
-    { "path": "integrations/secrets" },
     { "path": "adapters/claude" },
     { "path": "adapters/openclaw" },
     { "path": "adapters/codex" },
     { "path": "adapters/cursor" },
     { "path": "packages/core" },
-    { "path": "apps/cli" },
-    { "path": "apps/api" }
+    { "path": "apps/cli" }
   ]
 }

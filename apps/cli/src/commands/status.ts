@@ -29,22 +29,7 @@ export async function status(passport: Passport): Promise<number> {
   if (session.email) bullet(`email        ${session.email}`);
   bullet(`device       ${session.device}`);
   bullet(`created      ${session.createdAt}`);
-  const target = session.sync;
-  bullet(`sync         ${target && target.kind !== 'none' ? describeSync(target) : dim('this computer only')}`);
   line('');
   line(dim(`Vault: ${passport.store.path}`));
   return 0;
-}
-
-function describeSync(t: { kind: string; [k: string]: unknown }): string {
-  switch (t.kind) {
-    case 'git':
-      return `git ${t['remote'] as string}`;
-    case 'folder':
-      return `folder ${t['path'] as string}`;
-    case 'server':
-      return t['url'] as string;
-    default:
-      return 'this computer only';
-  }
 }

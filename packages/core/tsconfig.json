@@ -7,7 +7,6 @@
   "include": ["src/**/*.ts"],
   "references": [
     { "path": "../crypto" },
-    { "path": "../adapter-sdk" },
-    { "path": "../../integrations/secrets" }
+    { "path": "../adapter-sdk" }
   ]
 }

@@ -29,17 +29,9 @@ ${bold('Commands')}
   remote   [<git-url>] [--branch main]  Bind passport home to a git repo
   logout                         Remove the passport from this computer
 
-${bold('Unlocking')}
-  No passphrase. Your key lives in this machine's credential store. A recovery
-  code, shown once at setup, is what adds another computer.
-
-${bold('Tool support is optional')}
-  npm install @agentpassport/adapter-claude     # or -openclaw, -codex, -cursor
-
 ${bold('Environment')}
   AGENTPASS_HOME                 Passport directory (default ~/.agentpass)
   AGENTPASS_AGENT_HOME           Home directory tools are read from
-  AGENTPASS_SERVER               Sync server URL
 `;
 
 async function main(argv: string[]): Promise<number> {
@@ -49,17 +41,16 @@ async function main(argv: string[]): Promise<number> {
     strict: false,
     options: {
       code: { type: 'string' },
-      git: { type: 'string' },
-      folder: { type: 'string' },
       branch: { type: 'string' },
       help: { type: 'boolean', short: 'h' },
       version: { type: 'boolean', short: 'v' },
       'dry-run': { type: 'boolean' },
+      diff: { type: 'boolean' },
+      push: { type: 'boolean' },
+      prune: { type: 'boolean' },
       email: { type: 'string' },
       name: { type: 'string' },
       'user-id': { type: 'string' },
-      server: { type: 'string' },
-      token: { type: 'string' },
       agent: { type: 'string' },
       cwd: { type: 'string' },
     },

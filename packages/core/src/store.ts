@@ -19,23 +19,10 @@ import { ensureDeviceKey, openDeviceKeyStore, type DeviceKeyStore } from './devi
 export interface Session {
   userId: string;
   email?: string;
-  token?: string;
-  serverUrl?: string;
-  sync?: SyncTarget;
   device: string;
   deviceId: string;
   createdAt: string;
 }
-
-/**
- * How this passport reaches the user's other computers. The vault is ciphertext
- * before it leaves, so the transport is free to be something the user already owns.
- */
-export type SyncTarget =
-  | { kind: 'none' }
-  | { kind: 'folder'; path: string }
-  | { kind: 'git'; remote: string; branch?: string }
-  | { kind: 'server'; url: string; token: string };
 
 interface VaultFile {
   v: 2;
@@ -177,12 +164,6 @@ export class VaultStore {
 
   async keyring(): Promise<Keyring> {
     return (await this.require()).keyring;
-  }
-
-  async setSyncTarget(target: SyncTarget): Promise<void> {
-    const vault = await this.require();
-    vault.session.sync = target;
-    await this.write(vault);
   }
 
   async unlock(secret?: string): Promise<UnlockResult> {
