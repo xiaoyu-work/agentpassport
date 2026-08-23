@@ -457,31 +457,17 @@ writing.
 
 ### Snapshot mode — per-agent folder backup
 
-`import`/`restore` translate config through a universal profile so agents can share
-settings. That is the right model when you want cross-agent memory sharing.
-
-`snapshot`/`hydrate` are the opposite trade-off: each agent gets its own encrypted
-folder, files stored verbatim, no translation, no sharing. Use this when you just
-want to back up an agent (identity files, memory, config, skills) and restore it
-intact on another machine or after a wipe.
+`import`/`restore` translate config into a shared schema. `snapshot`/`hydrate` don't:
+each agent gets its own encrypted folder, files stored verbatim. Use this when you
+just want to back an agent up and put it back intact.
 
 ```bash
-agentpass snapshot                # snapshot every known agent
-agentpass snapshot openclaw       # single agent
-agentpass snapshot --diff         # show what changed since last snapshot
-agentpass snapshot --dry-run      # no writes
-agentpass snapshot --push         # git commit + push after writing
-
-agentpass hydrate openclaw        # restore back to disk
-agentpass hydrate --prune         # delete files not in the snapshot
-agentpass hydrate --dry-run       # preview target paths
+agentpass snapshot [agent]        # --diff, --dry-run, --push
+agentpass hydrate  [agent]        # --prune, --dry-run
 ```
 
-Snapshots live at `~/.agentpass/agents/<agent>/snapshot.enc.json`, encrypted with
-the same data key as the vault. Each agent has an explicit manifest of what to
-capture (persona files, memory, config, skills) and what to exclude (session
-transcripts, logs, secrets, `.git`, `node_modules`). Supported today: openclaw,
-claude, codex, cursor.
+Stored at `~/.agentpass/agents/<agent>/snapshot.enc.json`, encrypted with the vault
+data key. Supported: openclaw, claude, codex, cursor.
 
 ## How your files are treated
 
