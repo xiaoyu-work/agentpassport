@@ -8,14 +8,14 @@ import { bullet, cyan, dim, fail, heading, line, ok, warn } from '../ui.js';
 const exec = promisify(execFile);
 
 /**
- * Bind (or rebind) the passport home to a git remote.
+ * Bind (or rebind) the passport home to a GitHub repo.
  *
- * The user creates the repo themselves — GitHub, GitLab, self-hosted, whatever —
- * and hands the URL here. We take care of `git init`, wiring `origin`, and doing
- * the first push so `agentpass snapshot --push` just works from then on.
+ * The user creates the private repo on GitHub themselves and hands the URL here.
+ * We take care of `git init`, wiring `origin`, and doing the first push so
+ * `agentpass snapshot --push` just works from then on.
  *
  *   agentpass remote git@github.com:me/99-passport.git
- *   agentpass remote https://gitlab.com/me/passport.git --branch main
+ *   agentpass remote https://github.com/me/passport.git --branch main
  *   agentpass remote                                     (show current)
  */
 export async function remoteCommand(
