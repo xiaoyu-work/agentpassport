@@ -5,6 +5,7 @@ import { setUp, signOut } from './commands/auth.js';
 import { scan, status } from './commands/status.js';
 import { snapshotCommand, hydrateCommand } from './commands/snapshot.js';
 import { pluginsCommand } from './commands/plugins.js';
+import { remoteCommand } from './commands/remote.js';
 import { bold, cyan, dim, fail, line, warn } from './ui.js';
 
 const HELP = `${bold('agentpass')} — encrypted per-agent backup for your AI tools.
@@ -24,6 +25,7 @@ ${bold('Commands')}
   plugins                        Which tool adapters are installed
   snapshot [agent] [--diff] [--dry-run] [--push]
   hydrate  [agent] [--prune] [--dry-run]
+  remote   [<git-url>] [--branch main]  Bind passport home to a git repo
   logout                         Remove the passport from this computer
 
 ${bold('Unlocking')}
@@ -118,6 +120,8 @@ async function main(argv: string[]): Promise<number> {
       return snapshotCommand(passport, rest[0], args);
     case 'hydrate':
       return hydrateCommand(passport, rest[0], args);
+    case 'remote':
+      return remoteCommand(passport, rest[0], args);
     default:
       fail(`unknown command "${command}"`);
       line(dim('Run "agentpass help" to see available commands.'));
