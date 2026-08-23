@@ -1,118 +1,106 @@
 # Agent Passport
 
-**Sign in to your AI.**
+**Encrypted, per-agent config backup for AI coding tools.**
 
-One account carries your identity, memory, preferences, skills, and MCP config
-across Claude Code, OpenClaw, Codex, and Cursor. Change machines, change agents,
-reinstall an agent — you never have to tell an AI who you are again.
+One CLI, one recovery code, snapshots every known agent's config to an encrypted
+folder you can push to a private git repo. Change machines, wipe a laptop,
+reinstall an agent — pull the snapshot back and you are exactly where you left off.
 
 > [!WARNING]
-> Developer preview. The profile format may change before 1.0.
+> Developer preview. Snapshot format may change before 1.0.
 
 ## Install
 
 ```console
-npm install -g agentpassport   # or: npx agentpassport scan
+npm install -g agentpassport
 ```
 
-Requires Node.js 22+. Nothing else — no compiler, no native modules, no account.
+Requires Node.js 22+. No compiler, no native modules, no account.
 
 ## Quick start
 
 ```console
-agentpass scan               # what's installed on this machine
-agentpass setup              # create your passport
-agentpass snapshot           # encrypted per-agent backup
-agentpass hydrate <agent>    # restore a snapshot back to disk
+agentpass setup                       # create your local vault + recovery code
+agentpass scan                        # what's installed here
+agentpass snapshot openclaw           # encrypted backup of one agent
+agentpass snapshot                    # backup every detected agent
+agentpass hydrate openclaw --dry-run  # preview restore
 ```
 
-`setup` gives you a recovery code. That code is the only way to get your identity
-onto another computer, or back if this one is lost. It is never uploaded.
+`setup` prints a recovery code once. It is the only way to unlock the vault on
+another machine. It is never uploaded.
 
-## Two modes
+## How it works
 
-| Mode                       | What it does                                  |
-| -------------------------- | --------------------------------------------- |
-| `snapshot` / `hydrate`     | Per-agent encrypted folder backup, verbatim   |
-| `import` / `restore`       | Translated universal profile, cross-agent     |
+Each agent gets its own encrypted snapshot:
 
-**Snapshot** — each agent gets its own encrypted folder at
-`~/.agentpass/agents/<agent>/snapshot.enc.json`. Files stored verbatim, no
-translation. Use when you just want to back an agent up and put it back intact.
-Supported: openclaw, claude, codex, cursor.
-
-```bash
-agentpass snapshot [agent]    # flags: --diff --dry-run --push
-agentpass hydrate  [agent]    # flags: --prune --dry-run
+```
+~/.agentpass/agents/<agent>/snapshot.enc.json
 ```
 
-**Import/restore** — translates each agent's config into a universal profile so
-preferences learned in one agent appear in another. Originals are also kept so a
-fresh machine can be restored faithfully.
+Files are stored verbatim — no translation, no schema, no cross-agent sharing.
+`hydrate` writes them back to the exact paths they came from.
+
+Supported adapters: `openclaw`, `claude`, `codex`, `cursor`. Each ships only a
+`paths.ts` describing which files belong in its snapshot.
 
 ## Sync
 
+Snapshots + vault push through any of these backends:
+
 ```console
-agentpass sync --git git@github.com:you/your-passport.git
-agentpass sync --folder ~/Dropbox/passport
+agentpass snapshot --push             # uses the sync target from setup
 ```
 
-Everything is encrypted with a data key that never leaves the device. The sync
-target only ever sees ciphertext.
+Configure a target once (git, folder, or http). The target only ever sees
+ciphertext.
 
 ## Where your data lives
 
-- `~/.agentpass/vault.json` — keyring + encrypted profile (safe to sync)
+- `~/.agentpass/vault.json` — keyring + session (safe to sync)
 - `~/.agentpass/agents/<agent>/snapshot.enc.json` — encrypted per-agent backup
 - `~/.agentpass/device.key`, `device-id`, `keystore.json` — **machine-local, never sync**
-
-Excluded from snapshots: session transcripts, logs, `.secrets/`, `.git`,
-`node_modules`, anything credential-shaped.
 
 ## Commands
 
 | Command                       | Purpose                                    |
 | ----------------------------- | ------------------------------------------ |
-| `agentpass`                   | What is stored and which agents can see it |
+| `agentpass`                   | Show status                                |
+| `agentpass setup`             | Create a passport, or join with `--code`   |
+| `agentpass status`            | What is stored on this machine             |
 | `agentpass scan`              | List detected agents                       |
 | `agentpass plugins`           | Which adapters are installed               |
-| `agentpass setup`             | Create a passport, or join with `--code`   |
-| `agentpass import [agent]`    | Agent config → passport                    |
-| `agentpass restore [agent]`   | Passport → agent config                    |
-| `agentpass snapshot [agent]`  | Encrypted per-agent folder backup          |
-| `agentpass hydrate [agent]`   | Restore a snapshot back to disk            |
-| `agentpass diff [agent]`      | Show both directions, change nothing       |
-| `agentpass sync`              | Reconcile with your other computers        |
-| `agentpass status`            | Passport, memory audience, secrets         |
-| `agentpass memory list`       | Inspect the shared store                   |
+| `agentpass snapshot [agent]`  | Encrypted per-agent backup (`--diff --dry-run --push`) |
+| `agentpass hydrate  [agent]`  | Restore a snapshot back to disk (`--prune --dry-run`) |
 | `agentpass logout`            | Remove the passport from this computer     |
-
-## Secrets
-
-API keys and tokens are never stored. Agent Passport keeps a reference such as
-`env://GITHUB_TOKEN` or `op://Private/openai/credential`, never the value.
 
 ## Encryption
 
 - AES-256-GCM for content
-- Argon2id (or scrypt fallback) for passphrase-derived keys
-- Per-device key sealed by the vault key; loss of a device does not require a
-  password reset, only removing that device's slot
+- Argon2id (or scrypt fallback) for the recovery code
+- Per-device key sealed by the vault key and stored in the OS credential store
+- Losing a device only means removing that device's keyring slot
 
 ## Adding an agent
 
-Adapters live in `adapters/`. Each exports a small `AgentAdapter` and a
-`snapshotEntries(paths)` function listing which files belong in a backup. See
-`adapters/openclaw` for the reference implementation.
+Adapters live in `adapters/`. Each one exports:
+
+```ts
+export interface AdapterPaths { /* absolute paths for this agent */ }
+export function <agent>Paths(ctx): AdapterPaths;
+export function snapshotEntries(paths): string[];  // files/dirs in the backup
+```
+
+See `adapters/openclaw` for the reference implementation.
 
 ## Repository layout
 
 ```
-apps/cli              CLI entry point
-packages/core         Passport, store, plugin loader
+apps/cli              CLI entry point (agentpass)
+packages/core         Passport, vault store, plugin loader
 packages/crypto       Keyring, envelope, KDF
-packages/adapter-sdk  Types + snapshot helpers
-adapters/*            Per-agent adapters
+packages/adapter-sdk  Snapshot helpers + shared types
+adapters/*            Per-agent adapters (paths only)
 ```
 
 ## Development
