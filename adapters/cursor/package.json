@@ -18,9 +18,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@agentpassport/adapter-sdk": "^0.1.0",
-    "@agentpassport/memory": "^0.1.0",
-    "@agentpassport/profile": "^0.1.0"
+    "@agentpassport/adapter-sdk": "^0.1.0"
   },
   "repository": {
     "type": "git",
