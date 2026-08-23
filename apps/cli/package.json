@@ -1,7 +1,7 @@
 {
   "name": "agentpassport",
   "version": "0.1.0",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "description": "Sign in to your AI. Carry your identity, memory, and config across every AI coding agent.",
   "type": "module",
   "bin": {
