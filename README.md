@@ -7,6 +7,20 @@ and pushed to a private git repo. Change machines, wipe a laptop, reinstall an
 agent — clone the repo back and restore. No encryption layer, no recovery code,
 no lock-in: your backup is just files you can `cat`, `git diff`, and `cp`.
 
+> [!CAUTION]
+> **Never make your backup repo public.**
+>
+> Snapshots are stored in plain text and can include:
+> - API keys and OAuth tokens (e.g. `openclaw-agent.sqlite`)
+> - Long-term memory, notes, chat context (`MEMORY.md`, `memory/`)
+> - Personal identity files (`USER.md`, `SOUL.md`, `IDENTITY.md`)
+>
+> Security here comes from **your GitHub repo being private**, not from the tool.
+> If you accidentally push this to a public repo, treat every credential in
+> `agents/*/files/` as compromised and rotate it. Do **not** flip a passport
+> repo from private to public — create a new private one and re-run
+> `agentpass remote`.
+
 > [!WARNING]
 > Developer preview. Snapshot format may change before 1.0.
 
