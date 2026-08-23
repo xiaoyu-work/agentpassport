@@ -442,6 +442,8 @@ out of the account.
 | `agentpass setup`                         | Create a passport, or join one with `--code`       |
 | `agentpass import [agent]`                | Agent config → passport (all agents by default)    |
 | `agentpass restore [agent]`               | Passport → agent config (all agents by default)    |
+| `agentpass snapshot [agent]`              | Encrypted per-agent folder backup (see below)      |
+| `agentpass hydrate [agent]`               | Restore a snapshot back to disk                    |
 | `agentpass diff [agent]`                  | Show both directions, change nothing               |
 | `agentpass sync`                          | Reconcile with your other computers                |
 | `agentpass sync --git \| --folder`        | Choose where your passport is kept                 |
@@ -452,6 +454,34 @@ out of the account.
 
 `import` and `restore` accept `--dry-run`. `restore` always previews and asks before
 writing.
+
+### Snapshot mode — per-agent folder backup
+
+`import`/`restore` translate config through a universal profile so agents can share
+settings. That is the right model when you want cross-agent memory sharing.
+
+`snapshot`/`hydrate` are the opposite trade-off: each agent gets its own encrypted
+folder, files stored verbatim, no translation, no sharing. Use this when you just
+want to back up an agent (identity files, memory, config, skills) and restore it
+intact on another machine or after a wipe.
+
+```bash
+agentpass snapshot                # snapshot every known agent
+agentpass snapshot openclaw       # single agent
+agentpass snapshot --diff         # show what changed since last snapshot
+agentpass snapshot --dry-run      # no writes
+agentpass snapshot --push         # git commit + push after writing
+
+agentpass hydrate openclaw        # restore back to disk
+agentpass hydrate --prune         # delete files not in the snapshot
+agentpass hydrate --dry-run       # preview target paths
+```
+
+Snapshots live at `~/.agentpass/agents/<agent>/snapshot.enc.json`, encrypted with
+the same data key as the vault. Each agent has an explicit manifest of what to
+capture (persona files, memory, config, skills) and what to exclude (session
+transcripts, logs, secrets, `.git`, `node_modules`). Supported today: openclaw,
+claude, codex, cursor.
 
 ## How your files are treated
 

@@ -18,7 +18,35 @@ export interface OpenClawPaths {
   userFile: string;
   memoryFile: string;
   soulFile: string;
+  toolsFile: string;
+  identityFile: string;
+  heartbeatFile: string;
+  memoryDir: string;
   skillsDir: string;
+}
+
+/**
+ * Every file/directory that belongs in an OpenClaw identity snapshot.
+ *
+ * Ordered so a human reading the manifest sees the persona files first (SOUL, IDENTITY,
+ * AGENTS, USER, TOOLS) before the state (MEMORY, memory/, config, skills).
+ *
+ * Session transcripts under `agents/<id>/sessions/` are deliberately excluded — they are
+ * large, privacy-heavy, and rarely useful when moving identity to a fresh machine.
+ */
+export function snapshotEntries(paths: OpenClawPaths): string[] {
+  return [
+    paths.soulFile,
+    paths.identityFile,
+    paths.agentsFile,
+    paths.userFile,
+    paths.toolsFile,
+    paths.memoryFile,
+    paths.heartbeatFile,
+    paths.memoryDir,
+    paths.configFile,
+    paths.skillsDir,
+  ];
 }
 
 export function openclawPaths(context: AdapterContext): OpenClawPaths {
@@ -42,6 +70,10 @@ export function openclawPaths(context: AdapterContext): OpenClawPaths {
     userFile: join(workspaceDir, 'USER.md'),
     memoryFile: join(workspaceDir, 'MEMORY.md'),
     soulFile: join(workspaceDir, 'SOUL.md'),
+    toolsFile: join(workspaceDir, 'TOOLS.md'),
+    identityFile: join(workspaceDir, 'IDENTITY.md'),
+    heartbeatFile: join(workspaceDir, 'HEARTBEAT.md'),
+    memoryDir: join(workspaceDir, 'memory'),
     skillsDir: join(stateDir, 'skills'),
   };
 }

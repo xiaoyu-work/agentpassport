@@ -10,3 +10,4 @@ export * from './artifacts.js';
 export * from './models.js';
 export * from './registry.js';
 export * from './plugin.js';
+export * from './snapshot.js';

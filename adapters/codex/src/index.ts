@@ -62,6 +62,13 @@ export function codexPaths(context: AdapterContext): CodexPaths {
   };
 }
 
+/**
+ * Files that belong in a Codex identity snapshot. Global scope only.
+ */
+export function snapshotEntries(paths: CodexPaths): string[] {
+  return [paths.configFile, paths.globalAgents, paths.skillsDir];
+}
+
 interface CodexMcpServer {
   command?: string;
   args?: string[];

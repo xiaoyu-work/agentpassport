@@ -64,6 +64,14 @@ export function cursorPaths(context: AdapterContext): CursorPaths {
   };
 }
 
+/**
+ * Files that belong in a Cursor identity snapshot. Global MCP only —
+ * project rules and .cursor/rules live in the project repo.
+ */
+export function snapshotEntries(paths: CursorPaths): string[] {
+  return [paths.globalMcp];
+}
+
 interface CursorMcpServer {
   command?: string;
   args?: string[];

@@ -8,6 +8,7 @@ import { restoreCommand } from './commands/restore.js';
 import { diffCommand } from './commands/diff.js';
 import { syncCommand } from './commands/sync.js';
 import { memoryCommand } from './commands/memory.js';
+import { snapshotCommand, hydrateCommand } from './commands/snapshot.js';
 import { pluginsCommand } from './commands/plugins.js';
 import { bold, cyan, dim, fail, line, warn } from './ui.js';
 
@@ -143,6 +144,10 @@ async function main(argv: string[]): Promise<number> {
       return syncCommand(passport, args);
     case 'memory':
       return memoryCommand(passport, rest[0], rest.slice(1), args);
+    case 'snapshot':
+      return snapshotCommand(passport, rest[0], args);
+    case 'hydrate':
+      return hydrateCommand(passport, rest[0], args);
     default:
       fail(`unknown command "${command}"`);
       line(dim('Run "agentpass help" to see available commands.'));

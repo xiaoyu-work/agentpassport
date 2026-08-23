@@ -36,6 +36,16 @@ export function claudePaths(context: AdapterContext): ClaudePaths {
   };
 }
 
+/**
+ * Files that belong in a Claude Code identity snapshot.
+ *
+ * Global scope only — project-scoped files live in the project repo and
+ * shouldn't be part of an agent's portable identity.
+ */
+export function snapshotEntries(paths: ClaudePaths): string[] {
+  return [paths.userSettings, paths.userMemory, paths.globalJson, paths.skillsDir];
+}
+
 /** Claude Code's MCP server entry. Note `type`, where most agents write `transport`. */
 export interface ClaudeMcpServer {
   type?: 'stdio' | 'sse' | 'http';

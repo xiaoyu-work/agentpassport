@@ -17,10 +17,15 @@
   },
   "dependencies": {
     "@agentpassport/core": "^0.1.0",
+    "@agentpassport/crypto": "^0.1.0",
     "@agentpassport/memory": "^0.1.0",
     "@agentpassport/profile": "^0.1.0",
     "@agentpassport/sync": "^0.1.0",
-    "@agentpassport/adapter-sdk": "^0.1.0"
+    "@agentpassport/adapter-sdk": "^0.1.0",
+    "@agentpassport/adapter-openclaw": "^0.1.0",
+    "@agentpassport/adapter-claude": "^0.1.0",
+    "@agentpassport/adapter-codex": "^0.1.0",
+    "@agentpassport/adapter-cursor": "^0.1.0"
   },
   "optionalDependencies": {
     "@agentpassport/adapter-claude": "^0.1.0",
