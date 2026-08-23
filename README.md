@@ -20,10 +20,9 @@ Requires Node.js 22+. No compiler, no native modules, no account.
 
 ## Quick start
 
-The whole flow. Substitute your own repo URL for `<git-url>` — anything you can
-`git push` to (private GitHub / GitLab / self-hosted) works.
+The whole flow. Substitute your own repo URL for `<git-url>`.
 
-**1. Create an empty private repo.**
+**1. Create an empty private GitHub repo.**
    You own it; the CLI just pushes to it. Nothing else needs to exist there.
 
 **2. First-time setup on this machine:**
