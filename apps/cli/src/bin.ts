@@ -3,20 +3,21 @@ import { parseArgs } from 'node:util';
 import { Passport } from '@agentpassport/core';
 import { setUp, signOut } from './commands/auth.js';
 import { scan, status } from './commands/status.js';
-import { snapshotCommand, hydrateCommand } from './commands/snapshot.js';
+import { snapshotCommand, restoreCommand } from './commands/snapshot.js';
 import { pluginsCommand } from './commands/plugins.js';
 import { remoteCommand } from './commands/remote.js';
 import { bold, cyan, dim, fail, line, warn } from './ui.js';
 
-const HELP = `${bold('agentpass')} — encrypted per-agent backup for your AI tools.
+const HELP = `${bold('agentpass')} — per-agent backup for your AI tools, synced to a git repo you own.
 
 ${bold('Getting started')}
   agentpass setup                First computer: creates your passport
-  agentpass snapshot             Encrypted backup of every known agent
+  agentpass remote <git-url>     Bind this passport to your private repo
+  agentpass snapshot --push      Back up every known agent and push
 
 ${bold('Using a second computer')}
-  agentpass setup --user-id <id> --code <recovery>
-  agentpass hydrate              Restore snapshots back to disk
+  git clone <git-url> ~/.agentpass
+  agentpass restore              Restore snapshots back to disk
 
 ${bold('Commands')}
   setup [--name <n>] [--email <e>] [--code <recovery>]
@@ -24,7 +25,7 @@ ${bold('Commands')}
   scan                           AI tools detected on this machine
   plugins                        Which tool adapters are installed
   snapshot [agent] [--diff] [--dry-run] [--push]
-  hydrate  [agent] [--prune] [--dry-run]
+  restore  [agent] [--prune] [--dry-run]
   remote   [<git-url>] [--branch main]  Bind passport home to a git repo
   logout                         Remove the passport from this computer
 
@@ -118,8 +119,8 @@ async function main(argv: string[]): Promise<number> {
       return pluginsCommand(passport);
     case 'snapshot':
       return snapshotCommand(passport, rest[0], args);
-    case 'hydrate':
-      return hydrateCommand(passport, rest[0], args);
+    case 'restore':
+      return restoreCommand(passport, rest[0], args);
     case 'remote':
       return remoteCommand(passport, rest[0], args);
     default:

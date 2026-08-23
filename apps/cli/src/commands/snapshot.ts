@@ -251,7 +251,7 @@ export async function snapshotCommand(
   return 0;
 }
 
-export async function hydrateCommand(
+export async function restoreCommand(
   passport: Passport,
   agent: string | undefined,
   args: Map<string, string>,

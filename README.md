@@ -24,7 +24,7 @@ agentpass setup                       # create your local vault + recovery code
 agentpass scan                        # what's installed here
 agentpass snapshot openclaw           # encrypted backup of one agent
 agentpass snapshot                    # backup every detected agent
-agentpass hydrate openclaw --dry-run  # preview restore
+agentpass restore openclaw --dry-run  # preview restore
 ```
 
 `setup` prints a recovery code once. It is the only way to unlock the vault on
@@ -39,7 +39,7 @@ Each agent gets its own encrypted snapshot:
 ```
 
 Files are stored verbatim — no translation, no schema, no cross-agent sharing.
-`hydrate` writes them back to the exact paths they came from.
+`restore` writes them back to the exact paths they came from.
 
 Supported adapters: `openclaw`, `claude`, `codex`, `cursor`. Each ships only a
 `paths.ts` describing which files belong in its snapshot.
@@ -71,7 +71,7 @@ ciphertext.
 | `agentpass scan`              | List detected agents                       |
 | `agentpass plugins`           | Which adapters are installed               |
 | `agentpass snapshot [agent]`  | Encrypted per-agent backup (`--diff --dry-run --push`) |
-| `agentpass hydrate  [agent]`  | Restore a snapshot back to disk (`--prune --dry-run`) |
+| `agentpass restore  [agent]`  | Restore a snapshot back to disk (`--prune --dry-run`) |
 | `agentpass logout`            | Remove the passport from this computer     |
 
 ## Encryption
