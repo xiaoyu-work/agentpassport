@@ -20,19 +20,18 @@ Requires Node.js 22+. No compiler, no native modules, no account.
 
 ## Quick start
 
-The whole flow, using a real example repo
-[`xiaoyu-ai-twin/99-passport`](https://github.com/xiaoyu-ai-twin/99-passport) —
-substitute your own private repo.
+The whole flow. Substitute your own repo URL for `<git-url>` — anything you can
+`git push` to (private GitHub / GitLab / self-hosted) works.
 
-**1. Create an empty private repo on GitHub / GitLab / whatever.**
+**1. Create an empty private repo.**
    You own it; the CLI just pushes to it. Nothing else needs to exist there.
 
 **2. First-time setup on this machine:**
 
 ```console
-agentpass setup                                                   # create local passport
-agentpass remote git@github.com:xiaoyu-ai-twin/99-passport.git    # bind + initial push
-agentpass snapshot --push                                         # back up every detected agent
+agentpass setup                       # create local passport
+agentpass remote <git-url>            # bind + initial push
+agentpass snapshot --push             # back up every detected agent
 ```
 
 `agentpass remote` handles `git init`, sets `origin`, does the first commit and
@@ -48,7 +47,7 @@ agentpass snapshot --push        # only pushes if something actually changed
 **4. New machine / disaster recovery:**
 
 ```console
-git clone git@github.com:xiaoyu-ai-twin/99-passport.git ~/.agentpass
+git clone <git-url> ~/.agentpass
 agentpass restore                # write every agent's files back to disk
 ```
 
