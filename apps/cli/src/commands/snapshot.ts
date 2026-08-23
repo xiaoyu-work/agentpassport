@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdir, readFile, readdir, stat, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { promisify } from 'node:util';
 import type { Passport } from '@agentpassport/core';
@@ -7,10 +7,8 @@ import {
   collectFiles,
   diffSnapshots,
   snapshotHash,
-  writeFiles,
   type Snapshot,
 } from '@agentpassport/adapter-sdk';
-import { openEnvelope, sealEnvelope, type EncryptedEnvelope } from '@agentpassport/crypto';
 import {
   openclawPaths,
   snapshotEntries as openclawSnapshotEntries,
@@ -32,14 +30,16 @@ import { bullet, cyan, dim, heading, line, ok, warn, yellow } from '../ui.js';
 const exec = promisify(execFile);
 
 /**
- * Per-agent identity manifests.
+ * Per-agent snapshot storage.
  *
- * Each agent gets its own folder inside the passport home. Files stored verbatim,
- * encrypted at rest with the vault data key. No universal profile, no memory
- * extraction, no translation.
+ * Files are stored **verbatim, in plain text**, under
+ * `<passport-home>/agents/<agent>/files/<original-relative-path>`. A sibling
+ * `snapshot.json` records what was captured (hash, size, timestamps).
  *
- * openclaw is wired up here. Other adapters can register later without needing
- * a translation layer \u2014 they just need to declare a root and a list of paths.
+ * Rationale: the intended sync target is a user-owned private git repo. Adding
+ * a second encryption layer on top of that just makes backups un-inspectable,
+ * un-diff-able, and dependent on a recovery code the user can lose. If you
+ * don't trust your sync target, use a different sync target.
  */
 interface Manifest {
   root: string;
@@ -48,88 +48,99 @@ interface Manifest {
 
 function agentManifest(
   agent: string,
-  context: { home: string; cwd: string; env: NodeJS.ProcessEnv; device: string; deviceId: string },
+  ctx: {
+    home: string;
+    cwd: string;
+    env: NodeJS.ProcessEnv;
+    device: string;
+    deviceId: string;
+  },
 ): Manifest | undefined {
-  const ctx = {
-    home: context.home,
-    cwd: context.cwd,
-    env: context.env as Record<string, string | undefined>,
-    device: context.device,
-    deviceId: context.deviceId,
-  } as never;
-  if (agent === 'openclaw') {
-    const p = openclawPaths(ctx);
-    return { root: p.stateDir, entries: openclawSnapshotEntries(p) };
+  switch (agent) {
+    case 'openclaw': {
+      const p = openclawPaths(ctx);
+      return { root: p.stateDir, entries: openclawSnapshotEntries(p) };
+    }
+    case 'claude': {
+      const p = claudePaths(ctx);
+      return { root: ctx.home, entries: claudeSnapshotEntries(p) };
+    }
+    case 'codex': {
+      const p = codexPaths(ctx);
+      return { root: p.home, entries: codexSnapshotEntries(p) };
+    }
+    case 'cursor': {
+      const p = cursorPaths(ctx);
+      return { root: ctx.home, entries: cursorSnapshotEntries(p) };
+    }
+    default:
+      return undefined;
   }
-  if (agent === 'claude') {
-    const p = claudePaths(ctx);
-    return { root: context.home, entries: claudeSnapshotEntries(p) };
-  }
-  if (agent === 'codex') {
-    const p = codexPaths(ctx);
-    return { root: p.home, entries: codexSnapshotEntries(p) };
-  }
-  if (agent === 'cursor') {
-    const p = cursorPaths(ctx);
-    return { root: context.home, entries: cursorSnapshotEntries(p) };
-  }
-  return undefined;
 }
 
-const KNOWN_AGENTS = ['openclaw', 'claude', 'codex', 'cursor'] as const;
+const KNOWN_AGENTS = ['openclaw', 'claude', 'codex', 'cursor'];
 
-interface VaultLayout {
+interface Layout {
   agentDir: string;
-  encFile: string;
+  filesDir: string;
   metaFile: string;
 }
 
-function vaultLayout(passportHome: string, agent: string): VaultLayout {
+function layout(passportHome: string, agent: string): Layout {
   const agentDir = join(passportHome, 'agents', agent);
   return {
     agentDir,
-    encFile: join(agentDir, 'snapshot.enc.json'),
-    metaFile: join(agentDir, 'meta.json'),
+    filesDir: join(agentDir, 'files'),
+    metaFile: join(agentDir, 'snapshot.json'),
   };
 }
 
-async function readEncryptedSnapshot(
-  dataKey: Buffer,
-  encFile: string,
-): Promise<Snapshot | undefined> {
+/** Read a previous snapshot's manifest and reconstitute file contents from disk. */
+async function readSnapshot(l: Layout): Promise<Snapshot | undefined> {
   try {
-    const raw = await readFile(encFile, 'utf8');
-    const envelope = JSON.parse(raw) as EncryptedEnvelope;
-    return JSON.parse(openEnvelope(dataKey, envelope)) as Snapshot;
+    const raw = await readFile(l.metaFile, 'utf8');
+    const meta = JSON.parse(raw) as {
+      agent: string;
+      capturedAt: string;
+      files: { path: string; mode?: number }[];
+    };
+    const files = await Promise.all(
+      meta.files.map(async (f) => {
+        const buf = await readFile(join(l.filesDir, f.path));
+        return { path: f.path, contentBase64: buf.toString('base64'), mode: f.mode };
+      }),
+    );
+    return { agent: meta.agent, capturedAt: meta.capturedAt, files };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
     throw error;
   }
 }
 
-async function writeEncryptedSnapshot(
-  dataKey: Buffer,
-  userId: string,
-  keyId: string,
-  revision: number,
-  snapshot: Snapshot,
-  encFile: string,
-): Promise<void> {
-  const envelope = sealEnvelope(dataKey, {
-    userId,
-    keyId,
-    revision,
-    plaintext: JSON.stringify(snapshot),
-  });
-  await mkdir(join(encFile, '..'), { recursive: true });
-  await writeFile(encFile, `${JSON.stringify(envelope, null, 2)}\n`, { mode: 0o600 });
+/** Write a snapshot as a plain file tree + a JSON manifest sibling. */
+async function writeSnapshot(snapshot: Snapshot, l: Layout): Promise<number> {
+  // Clean the files dir so removals show up as git deletions, not stale files.
+  await rm(l.filesDir, { recursive: true, force: true });
+  await mkdir(l.filesDir, { recursive: true });
+  let total = 0;
+  for (const f of snapshot.files) {
+    const dest = join(l.filesDir, f.path);
+    await mkdir(join(dest, '..'), { recursive: true });
+    const buf = Buffer.from(f.contentBase64, 'base64');
+    await writeFile(dest, buf, { mode: f.mode ?? 0o644 });
+    total += buf.length;
+  }
+  const meta = {
+    agent: snapshot.agent,
+    capturedAt: snapshot.capturedAt,
+    hash: snapshotHash(snapshot),
+    bytes: total,
+    files: snapshot.files.map((f) => ({ path: f.path, mode: f.mode })),
+  };
+  await writeFile(l.metaFile, `${JSON.stringify(meta, null, 2)}\n`);
+  return total;
 }
 
-/**
- * List every file that currently exists under the manifest\u2019s declared entries.
- * Used by hydrate to find \u201corphans\u201d \u2014 files on disk that the snapshot no longer
- * knows about \u2014 so a restore is a real mirror, not an additive copy.
- */
 async function listExistingFiles(manifest: Manifest): Promise<string[]> {
   const out: string[] = [];
   async function visit(abs: string): Promise<void> {
@@ -143,9 +154,7 @@ async function listExistingFiles(manifest: Manifest): Promise<string[]> {
       for (const child of await readdir(abs)) await visit(join(abs, child));
       return;
     }
-    if (s.isFile()) {
-      out.push(relative(manifest.root, abs).split(sep).join('/'));
-    }
+    if (s.isFile()) out.push(relative(manifest.root, abs).split(sep).join('/'));
   }
   for (const entry of manifest.entries) await visit(entry);
   return out.sort();
@@ -160,12 +169,6 @@ export async function snapshotCommand(
   const showDiff = args.has('diff') || dryRun;
   const push = args.has('push');
   const targets = agent ? [agent] : KNOWN_AGENTS;
-
-  const { dataKey } = await passport.store.unlock();
-  const session = await passport.store.session();
-  const keyring = await passport.store.keyring();
-  const history = await passport.store.history();
-  const revision = (history[history.length - 1]?.revision ?? 0) + 1;
 
   const context = {
     home: passport.agentHome,
@@ -207,8 +210,8 @@ export async function snapshotCommand(
       0,
     );
 
-    const { encFile, metaFile } = vaultLayout(passport.home, target);
-    const previous = await readEncryptedSnapshot(dataKey, encFile);
+    const l = layout(passport.home, target);
+    const previous = await readSnapshot(l);
 
     ok(`${files.length} files, ${humanBytes(totalBytes)}, sha256:${hash.slice(0, 12)}`);
 
@@ -234,19 +237,8 @@ export async function snapshotCommand(
       continue;
     }
 
-    await writeEncryptedSnapshot(
-      dataKey,
-      session?.userId ?? 'anonymous',
-      keyring.keyId,
-      revision,
-      snapshot,
-      encFile,
-    );
-    await writeFile(
-      metaFile,
-      `${JSON.stringify({ agent: target, capturedAt: snapshot.capturedAt, hash, files: files.length, bytes: totalBytes }, null, 2)}\n`,
-    );
-    line(dim(`  wrote ${encFile}`));
+    await writeSnapshot(snapshot, l);
+    line(dim(`  wrote ${l.filesDir}/ + ${l.metaFile}`));
     anyWritten = true;
   }
 
@@ -268,8 +260,6 @@ export async function hydrateCommand(
   const prune = args.has('prune');
   const targets = agent ? [agent] : KNOWN_AGENTS;
 
-  const { dataKey } = await passport.store.unlock();
-
   const context = {
     home: passport.agentHome,
     cwd: passport.cwd,
@@ -284,83 +274,78 @@ export async function hydrateCommand(
       warn(`no snapshot manifest for ${target}`);
       continue;
     }
-    const { encFile } = vaultLayout(passport.home, target);
-    const snapshot = await readEncryptedSnapshot(dataKey, encFile);
+
+    const l = layout(passport.home, target);
+    const snapshot = await readSnapshot(l);
     if (!snapshot) {
-      warn(`no snapshot for ${target} at ${encFile}`);
+      warn(`no snapshot for ${target}`);
       continue;
     }
 
     heading(cyan(target));
     ok(`snapshot ${snapshot.capturedAt}, ${snapshot.files.length} files`);
 
-    const onDisk = new Set(await listExistingFiles(manifest));
-    const inSnap = new Set(snapshot.files.map((f) => f.path));
-    const orphans = [...onDisk].filter((p) => !inSnap.has(p));
+    const wantPaths = new Set(snapshot.files.map((f) => f.path));
+    const existing = await listExistingFiles(manifest);
+    const orphans = existing.filter((p) => !wantPaths.has(p));
 
-    if (orphans.length > 0) {
-      warn(`${orphans.length} file(s) on disk are not in the snapshot:`);
-      for (const p of orphans) line(dim(`  ? ${p}`));
-      if (prune) {
-        if (dryRun) {
-          line(dim(`  would delete ${orphans.length} orphan(s)`));
-        } else {
-          for (const p of orphans) {
-            try {
-              await unlink(join(manifest.root, p));
-              line(dim(`  deleted ${p}`));
-            } catch (error) {
-              warn(`  failed to delete ${p}: ${(error as Error).message}`);
-            }
+    for (const f of snapshot.files) {
+      const dest = join(manifest.root, f.path);
+      if (dryRun) {
+        line(dim(`  would write ${dest}`));
+        continue;
+      }
+      await mkdir(join(dest, '..'), { recursive: true });
+      await writeFile(dest, Buffer.from(f.contentBase64, 'base64'), {
+        mode: f.mode ?? 0o644,
+      });
+    }
+
+    if (prune) {
+      for (const rel of orphans) {
+        const dest = join(manifest.root, rel);
+        if (dryRun) line(dim(`  would remove ${dest}`));
+        else {
+          try {
+            await unlink(dest);
+          } catch {
+            /* ignore */
           }
         }
-      } else {
-        line(dim('  (use --prune to delete orphans)'));
       }
+    } else if (orphans.length > 0) {
+      line(dim(`  ${orphans.length} orphan file(s) on disk (use --prune to remove)`));
     }
-
-    if (dryRun) {
-      for (const f of snapshot.files) line(dim(`  would write ${join(manifest.root, f.path)}`));
-      continue;
-    }
-
-    const written = await writeFiles(manifest.root, snapshot.files);
-    ok(`restored ${written.length} files`);
   }
   return 0;
 }
 
 async function gitPush(passportHome: string): Promise<number> {
   try {
-    await stat(join(passportHome, '.git'));
+    await exec('git', ['-C', passportHome, 'rev-parse', '--is-inside-work-tree']);
   } catch {
-    warn(`no git repo at ${passportHome} \u2014 initialise with:`);
-    line(
-      dim(
-        `  git -C ${passportHome} init && git -C ${passportHome} remote add origin git@github.com:you/your-passport.git`,
-      ),
-    );
+    warn(`${passportHome} is not a git repo; run 'git init' + 'git remote add origin ...' first`);
     return 1;
   }
   try {
-    await exec('git', ['-C', passportHome, 'add', '.']);
-    const status = await exec('git', ['-C', passportHome, 'status', '--porcelain']);
-    if (!status.stdout.trim()) {
+    await exec('git', ['-C', passportHome, 'add', '-A']);
+    const { stdout } = await exec('git', [
+      '-C',
+      passportHome,
+      'status',
+      '--porcelain',
+    ]);
+    if (!stdout.trim()) {
       line(dim('nothing to commit'));
       return 0;
     }
-    await exec('git', [
-      '-C',
-      passportHome,
-      'commit',
-      '-m',
-      `snapshot ${new Date().toISOString()}`,
-    ]);
+    const msg = `snapshot ${new Date().toISOString()}`;
+    await exec('git', ['-C', passportHome, 'commit', '-m', msg]);
     await exec('git', ['-C', passportHome, 'push']);
-    ok('pushed to remote');
+    ok(`pushed: ${msg}`);
     return 0;
-  } catch (error) {
-    warn(`git push failed: ${(error as Error).message}`);
+  } catch (e) {
+    warn(`git push failed: ${(e as Error).message}`);
     return 1;
   }
 }
@@ -368,5 +353,5 @@ async function gitPush(passportHome: string): Promise<number> {
 function humanBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }

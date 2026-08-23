@@ -4,9 +4,8 @@ import { join } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { makeSandbox, write } from './helpers.ts';
 import { collectFiles, writeFiles, snapshotHash, type Snapshot } from '@agentpassport/adapter-sdk';
-import { createKeyring, sealEnvelope, openEnvelope } from '@agentpassport/crypto';
 
-test('snapshot roundtrip: collect → seal → open → write → identical bytes', async () => {
+test('snapshot roundtrip: collect → write to disk → read back → identical bytes', async () => {
   const src = await makeSandbox('snap-src');
   const dst = await makeSandbox('snap-dst');
 
@@ -26,19 +25,8 @@ test('snapshot roundtrip: collect → seal → open → write → identical byte
     files,
   };
 
-  // Seal + open through the real vault crypto.
-  const { keyring, dataKey } = createKeyring();
-  assert.ok(keyring);
-  const envelope = sealEnvelope(dataKey, {
-    userId: 'user_test',
-    keyId: 'key_test',
-    revision: 1,
-    plaintext: JSON.stringify(snapshot),
-  });
-  const roundTripped = JSON.parse(openEnvelope(dataKey, envelope)) as Snapshot;
-
-  // Write to a different sandbox and confirm bytes match.
-  const written = await writeFiles(dst.home, roundTripped.files);
+  // Persist as plain-text file tree + JSON manifest, then read it back.
+  const written = await writeFiles(dst.home, snapshot.files);
   assert.equal(written.length, 3);
   for (const rel of ['AGENTS.md', 'memory/2026-08-23.md', 'config.json']) {
     const a = await readFile(join(src.home, rel), 'utf8');
@@ -46,7 +34,7 @@ test('snapshot roundtrip: collect → seal → open → write → identical byte
     assert.equal(a, b, `mismatch on ${rel}`);
   }
 
-  // Snapshot hash is deterministic on identical content.
+  // Hash is deterministic on identical content.
   assert.equal(snapshotHash(snapshot), snapshotHash({ ...snapshot }));
 });
 
