@@ -3,60 +3,44 @@ import { parseArgs } from 'node:util';
 import { Passport } from '@agentpassport/core';
 import { setUp, signOut } from './commands/auth.js';
 import { scan, status } from './commands/status.js';
-import { importCommand } from './commands/import.js';
-import { restoreCommand } from './commands/restore.js';
-import { diffCommand } from './commands/diff.js';
 import { syncCommand } from './commands/sync.js';
-import { memoryCommand } from './commands/memory.js';
 import { snapshotCommand, hydrateCommand } from './commands/snapshot.js';
 import { pluginsCommand } from './commands/plugins.js';
 import { bold, cyan, dim, fail, line, warn } from './ui.js';
 
-const HELP = `${bold('agentpass')} — your AI identity, on every machine and every agent.
+const HELP = `${bold('agentpass')} — encrypted per-agent backup for your AI tools.
 
 ${bold('Getting started')}
   agentpass setup                First computer: creates your passport
-  agentpass import               Read every AI tool found here
-  agentpass restore              Write your identity into every AI tool
+  agentpass snapshot             Encrypted backup of every known agent
 
 ${bold('Using a second computer')}
-  agentpass sync --git <url>     Publish, through a repo only you can read
   agentpass setup --user-id <id> --git <url> --code <recovery>
-  agentpass import               Read every AI tool found here
-  agentpass restore              Write your identity into every AI tool
+  agentpass hydrate              Restore snapshots back to disk
 
 ${bold('Commands')}
   setup [--name <n>] [--email <e>] [--code <recovery>] [sync flags]
-  status                         What is stored, and which tools see it
+  status                         What is stored on this machine
   scan                           AI tools detected on this machine
   plugins                        Which tool adapters are installed
-  import [tool] [--dry-run]      Tool config -> passport
-  restore [tool] [--dry-run]     Passport -> tool config
-  diff [tool]                    Show both directions, change nothing
+  snapshot [agent] [--diff] [--dry-run] [--push]
+  hydrate  [agent] [--prune] [--dry-run]
   sync [--dry-run]               Reconcile with your other computers
   sync --git <url>               Sync through a private git repo
   sync --folder <path>           Sync through Dropbox, iCloud, OneDrive
-  memory list [--agent <id>]     One shared store; see who sees what
-  memory search <query>
-  memory share <id>              Make a memory visible to every tool
-  memory pin <id> <tool>...      Limit a memory to specific tools
-  memory forget <id>             Delete everywhere, from every tool
   logout                         Remove the passport from this computer
 
 ${bold('Unlocking')}
-  No passphrase. Your key lives in this machine's credential store, so
-  every command just works. A recovery code, shown once at setup, is what
-  adds another computer.
+  No passphrase. Your key lives in this machine's credential store. A recovery
+  code, shown once at setup, is what adds another computer.
 
 ${bold('Tool support is optional')}
   npm install @agentpassport/adapter-claude     # or -openclaw, -codex, -cursor
-  Anything named agentpass-adapter-* is discovered automatically.
 
 ${bold('Environment')}
   AGENTPASS_HOME                 Passport directory (default ~/.agentpass)
   AGENTPASS_AGENT_HOME           Home directory tools are read from
   AGENTPASS_SERVER               Sync server URL
-  MEM0_API_KEY                   Use Mem0 instead of the built-in memory store
 `;
 
 async function main(argv: string[]): Promise<number> {
@@ -134,16 +118,8 @@ async function main(argv: string[]): Promise<number> {
       return scan(passport);
     case 'plugins':
       return pluginsCommand(passport);
-    case 'import':
-      return importCommand(passport, rest[0], args);
-    case 'restore':
-      return restoreCommand(passport, rest[0], args);
-    case 'diff':
-      return diffCommand(passport, rest[0]);
     case 'sync':
       return syncCommand(passport, args);
-    case 'memory':
-      return memoryCommand(passport, rest[0], rest.slice(1), args);
     case 'snapshot':
       return snapshotCommand(passport, rest[0], args);
     case 'hydrate':
